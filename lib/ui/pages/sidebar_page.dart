@@ -1,0 +1,13 @@
+enum SideBarPage {
+  home,
+  products,
+  customers,
+  suppliers,
+  invoice,
+  newInvoice,
+  enhancedInvoice,
+  expenses,
+  purchases,
+  cashier,
+  reports,
+}

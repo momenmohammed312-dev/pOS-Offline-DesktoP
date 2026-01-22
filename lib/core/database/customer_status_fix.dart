@@ -1,0 +1,96 @@
+import 'dart:developer';
+import 'app_database.dart';
+
+/// Fix for customer status datatype mismatch
+/// This addresses SqliteException(20): datatype mismatch on INSERT INTO customers
+class CustomerStatusFix {
+  static Future<void> fixCustomerStatusColumn(AppDatabase db) async {
+    try {
+      log('🔧 Fixing customer status column...');
+
+      // Check if status column exists and its type
+      final result = await db
+          .customSelect('PRAGMA table_info(customers)')
+          .get();
+
+      bool hasStatusColumn = false;
+      bool isIntegerType = false;
+
+      for (final row in result) {
+        final columnName = row.data['name'] as String;
+        if (columnName == 'status') {
+          hasStatusColumn = true;
+          final columnType = row.data['type'] as String;
+          isIntegerType = columnType.toUpperCase().contains('INTEGER');
+          log('Found status column with type: $columnType');
+          break;
+        }
+      }
+
+      if (!hasStatusColumn) {
+        log('Status column does not exist. Adding it...');
+        await db.customStatement(
+          "ALTER TABLE customers ADD COLUMN status TEXT DEFAULT 'Active'",
+        );
+        log('✅ Status column added successfully');
+      } else if (isIntegerType) {
+        log('Status column is INTEGER type. Fixing...');
+
+        // 1. Backup existing data
+        await db.customStatement(
+          'CREATE TABLE customers_backup AS SELECT * FROM customers',
+        );
+
+        // 2. Drop the old table
+        await db.customStatement('DROP TABLE customers');
+
+        // 3. Create new table with correct schema (this will be handled by Drift)
+        await db.customStatement('''
+          CREATE TABLE customers (
+            id TEXT NOT NULL PRIMARY KEY,
+            name TEXT NOT NULL,
+            phone TEXT,
+            address TEXT,
+            gstinNumber TEXT,
+            email TEXT,
+            openingBalance REAL DEFAULT 0.0,
+            totalDebt REAL DEFAULT 0.0,
+            totalPaid REAL DEFAULT 0.0,
+            createdAt INTEGER,
+            updatedAt INTEGER,
+            notes TEXT,
+            isActive INTEGER DEFAULT 1,
+            status TEXT DEFAULT 'Active'
+          )
+        ''');
+
+        // 4. Restore data (converting INTEGER status to TEXT)
+        await db.customStatement('''
+          INSERT INTO customers (
+            id, name, phone, address, gstinNumber, email, openingBalance,
+            totalDebt, totalPaid, createdAt, updatedAt, notes, isActive, status
+          )
+          SELECT 
+            id, name, phone, address, gstinNumber, email, openingBalance,
+            totalDebt, totalPaid, createdAt, updatedAt, notes, isActive,
+            CASE 
+              WHEN status = 1 THEN 'Active'
+              WHEN status = 0 THEN 'Inactive'
+              ELSE 'Active'
+            END
+          FROM customers_backup
+        ''');
+
+        // 5. Clean up backup
+        await db.customStatement('DROP TABLE customers_backup');
+
+        log('✅ Status column fixed successfully');
+      } else {
+        log('✅ Status column already has correct TEXT type');
+      }
+    } catch (e) {
+      log('❌ Error fixing customer status column: $e');
+      rethrow;
+    }
+  }
+}
