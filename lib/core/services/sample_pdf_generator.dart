@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -133,8 +134,7 @@ class SamplePdfGenerator {
         const SnackBar(content: Text('Sample PDF saved successfully')),
       );
     } catch (e) {
-      // ignore: avoid_print
-      print('Failed to generate sample PDF: $e');
+      developer.log('Failed to generate sample PDF: $e');
       // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to generate sample PDF: $e')),

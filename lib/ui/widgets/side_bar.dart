@@ -50,12 +50,6 @@ class SideBarMenu extends StatelessWidget {
         _buildMenuItem(
           context,
           svgAssetPath: 'assets/svg/graph.svg',
-          title: context.l10n.expenses,
-          page: SideBarPage.expenses,
-        ),
-        _buildMenuItem(
-          context,
-          svgAssetPath: 'assets/svg/category.svg',
           title: 'المشتريات',
           page: SideBarPage.purchases,
         ),

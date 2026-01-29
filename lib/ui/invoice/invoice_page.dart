@@ -1,9 +1,11 @@
 import "package:flutter/material.dart";
 import 'package:intl/intl.dart';
 import "package:pos_offline_desktop/core/database/app_database.dart";
+import 'package:pos_offline_desktop/core/services/unified_print_service.dart'
+    as ups;
 import 'package:pos_offline_desktop/l10n/app_localizations.dart';
 import '../../core/services/export_service.dart';
-import '../../core/services/printer_service.dart';
+import 'package:pos_offline_desktop/ui/invoice/invoice_details_page.dart';
 import 'widgets/add_invoice_page.dart';
 
 class InvoicePage extends StatefulWidget {
@@ -213,39 +215,75 @@ class _InvoicePageState extends State<InvoicePage> {
     _loadData();
   }
 
-  Future<void> _printIndividualInvoice(Invoice invoice) async {
+  // Helper methods for new invoice list format
+  void _viewInvoice(BuildContext context, Invoice invoice) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            InvoiceDetailsPage(invoice: invoice, db: widget.db),
+      ),
+    );
+  }
+
+  Future<void> _printInvoiceNew(BuildContext context, Invoice invoice) async {
     try {
       // Get invoice items with product details
       final itemsWithProducts = await widget.db.invoiceDao
           .getItemsWithProductsByInvoice(invoice.id);
 
-      // Convert to maps for printing
-      final itemsMaps = itemsWithProducts.map((itemWithProduct) {
+      // Convert to InvoiceItem models
+      final invoiceItems = itemsWithProducts.map((itemWithProduct) {
         final item = itemWithProduct.$1;
         final product = itemWithProduct.$2;
-        return {
-          'productName': product?.name ?? 'Product ${item.productId}',
-          'name': product?.name ?? 'Product ${item.productId}',
-          'quantity': item.quantity,
-          'price': item.price,
-          'total': item.quantity * item.price,
-        };
+        return ups.InvoiceItem(
+          id: item.id,
+          invoiceId: item.invoiceId,
+          description: product?.name ?? 'Product ${item.productId}',
+          unit: 'قطعة',
+          quantity: item.quantity,
+          unitPrice: item.price,
+          totalPrice: item.quantity * item.price,
+        );
       }).toList();
 
-      await PrinterService.autoPrintInvoice(
-        invoice: {
-          'id': invoice.id,
-          'customerName': invoice.customerName,
-          'date': invoice.date,
-          'totalAmount': invoice.totalAmount,
-          'paymentMethod': invoice.paymentMethod,
-        },
-        items: itemsMaps,
-        paymentMethod: invoice.paymentMethod ?? 'cash',
-        ledgerDao: widget.db.ledgerDao,
+      // Create store info
+      final storeInfo = ups.StoreInfo(
+        storeName: 'المحل التجاري',
+        phone: '01234567890',
+        zipCode: '12345',
+        state: 'القاهرة',
       );
 
-      if (mounted) {
+      // Create invoice model
+      final invoiceModel = ups.Invoice(
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber ?? 'INV${invoice.id}',
+        customerName: invoice.customerName ?? 'عميل غير محدد',
+        customerPhone: 'N/A',
+        customerZipCode: '',
+        customerState: '',
+        invoiceDate: invoice.date,
+        subtotal: invoice.totalAmount,
+        isCreditAccount: invoice.status != 'paid',
+        previousBalance: 0.0,
+        totalAmount: invoice.totalAmount,
+      );
+
+      // Create InvoiceData
+      final invoiceData = ups.InvoiceData(
+        invoice: invoiceModel,
+        items: invoiceItems,
+        storeInfo: storeInfo,
+      );
+
+      // Print using new SOP 4.0 format
+      await ups.UnifiedPrintService.printToThermalPrinter(
+        documentType: ups.DocumentType.salesInvoice,
+        data: invoiceData,
+      );
+
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('تم إرسال الفاتورة للطباعة'),
@@ -254,10 +292,84 @@ class _InvoicePageState extends State<InvoicePage> {
         );
       }
     } catch (e) {
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('خطأ في الطباعة: $e')));
+      }
+    }
+  }
+
+  Future<void> _shareInvoiceNew(BuildContext context, Invoice invoice) async {
+    try {
+      // Get invoice items with product details
+      final itemsWithProducts = await widget.db.invoiceDao
+          .getItemsWithProductsByInvoice(invoice.id);
+
+      // Convert to InvoiceItem models
+      final invoiceItems = itemsWithProducts.map((itemWithProduct) {
+        final item = itemWithProduct.$1;
+        final product = itemWithProduct.$2;
+        return ups.InvoiceItem(
+          id: item.id,
+          invoiceId: item.invoiceId,
+          description: product?.name ?? 'Product ${item.productId}',
+          unit: 'قطعة',
+          quantity: item.quantity,
+          unitPrice: item.price,
+          totalPrice: item.quantity * item.price,
+        );
+      }).toList();
+
+      // Create store info
+      final storeInfo = ups.StoreInfo(
+        storeName: 'المحل التجاري',
+        phone: '01234567890',
+        zipCode: '12345',
+        state: 'القاهرة',
+      );
+
+      // Create invoice model
+      final invoiceModel = ups.Invoice(
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber ?? 'INV${invoice.id}',
+        customerName: invoice.customerName ?? 'عميل غير محدد',
+        customerPhone: 'N/A',
+        customerZipCode: '',
+        customerState: '',
+        invoiceDate: invoice.date,
+        subtotal: invoice.totalAmount,
+        isCreditAccount: invoice.status != 'paid',
+        previousBalance: 0.0,
+        totalAmount: invoice.totalAmount,
+      );
+
+      // Create InvoiceData
+      final invoiceData = ups.InvoiceData(
+        invoice: invoiceModel,
+        items: invoiceItems,
+        storeInfo: storeInfo,
+      );
+
+      // Share using new SOP 4.0 format
+      await ups.UnifiedPrintService.shareDocument(
+        documentType: ups.DocumentType.salesInvoice,
+        data: invoiceData,
+      );
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم مشاركة الفاتورة'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ في المشاركة: $e')));
       }
     }
   }
@@ -484,35 +596,39 @@ class _InvoicePageState extends State<InvoicePage> {
                               subtitle: Text(
                                 '#${invoice.id} - ${DateFormat('yyyy-MM-dd HH:mm').format(invoice.date)}',
                               ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        '${invoice.totalAmount.toStringAsFixed(2)} ${l10n.currency}',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      if (isCredit)
-                                        Text(
-                                          '${l10n.paid}: ${invoice.paidAmount.toStringAsFixed(2)}',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                    ],
+                              trailing: PopupMenuButton(
+                                itemBuilder: (context) => [
+                                  PopupMenuItem(
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.visibility),
+                                        SizedBox(width: 8),
+                                        Text('عرض'),
+                                      ],
+                                    ),
+                                    onTap: () => _viewInvoice(context, invoice),
                                   ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: const Icon(Icons.print, size: 20),
-                                    onPressed: () =>
-                                        _printIndividualInvoice(invoice),
-                                    tooltip: 'طباعة الفاتورة',
+                                  PopupMenuItem(
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.print),
+                                        SizedBox(width: 8),
+                                        Text('طباعة'),
+                                      ],
+                                    ),
+                                    onTap: () =>
+                                        _printInvoiceNew(context, invoice),
+                                  ),
+                                  PopupMenuItem(
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.share),
+                                        SizedBox(width: 8),
+                                        Text('مشاركة'),
+                                      ],
+                                    ),
+                                    onTap: () =>
+                                        _shareInvoiceNew(context, invoice),
                                   ),
                                 ],
                               ),

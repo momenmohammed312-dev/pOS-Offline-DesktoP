@@ -16,22 +16,32 @@ class EnhancedCustomerStatementButton extends StatelessWidget {
 
   Future<void> _generateStatement(BuildContext context) async {
     try {
-      // Use default date range (current month)
-      final now = DateTime.now();
-      final fromDate = DateTime(now.year, now.month, 1);
-      final toDate = DateTime(now.year, now.month + 1, 0);
+      // Use very wide date range to get all transactions
+      final wideFromDate = DateTime(2020, 1, 1); // Very old date
+      final wideToDate = DateTime.now(); // Until today
+
+      // Get opening balance from the beginning of time
+      final openingBalance = await db.ledgerDao.getRunningBalance(
+        'Customer',
+        customer.id.toString(),
+        upToDate: wideFromDate.subtract(const Duration(days: 1)),
+      );
+
+      // Get current balance using same method as example
+      final currentBalance = await db.ledgerDao.getRunningBalance(
+        'Customer',
+        customer.id.toString(),
+        upToDate: wideToDate,
+      );
 
       await EnhancedCustomerStatementGenerator.generateStatement(
         db: db,
         customerId: customer.id.toString(),
         customerName: customer.name,
-        fromDate: fromDate,
-        toDate: toDate,
-        openingBalance: customer.openingBalance,
-        currentBalance: await db.ledgerDao.getRunningBalance(
-          'Customer',
-          customer.id,
-        ),
+        fromDate: wideFromDate, // Use wide date range
+        toDate: wideToDate, // Use wide date range
+        openingBalance: openingBalance,
+        currentBalance: currentBalance,
       );
 
       if (context.mounted) {

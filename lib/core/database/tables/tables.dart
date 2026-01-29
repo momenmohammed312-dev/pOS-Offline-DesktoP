@@ -12,3 +12,7 @@ export 'supplier_table.dart';
 export 'expenses_table.dart';
 export 'user_table.dart';
 export 'day_table.dart';
+export 'enhanced_purchase_tables.dart';
+export 'purchase_returns_tables.dart';
+export 'purchase_orders_tables.dart';
+export 'purchase_budget_tables.dart';

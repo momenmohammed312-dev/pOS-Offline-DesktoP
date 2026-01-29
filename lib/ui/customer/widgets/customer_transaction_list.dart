@@ -10,7 +10,8 @@ import 'package:pos_offline_desktop/ui/customer/models/transaction_display_model
 import 'package:pos_offline_desktop/ui/customer/widgets/date_range_picker_dialog.dart'
     as custom;
 import 'package:pos_offline_desktop/ui/customer/services/transaction_list_pdf_generator.dart';
-import 'package:pos_offline_desktop/core/services/pdf_invoice_service.dart';
+import 'package:pos_offline_desktop/core/services/unified_print_service.dart'
+    as ups;
 
 // Simple transaction tile widget for the customer list
 class TransactionTile extends StatelessWidget {
@@ -255,7 +256,7 @@ class TransactionTile extends StatelessWidget {
                 }
 
                 return Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(8),
                   color: isDarkMode
                       ? Colors.grey.shade900
                       : Colors.grey.shade50,
@@ -264,8 +265,8 @@ class TransactionTile extends StatelessWidget {
                       // Enhanced table header matching sales reports format
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          vertical: 8,
-                          horizontal: 12,
+                          vertical: 6,
+                          horizontal: 8,
                         ),
                         decoration: BoxDecoration(
                           color: isDarkMode
@@ -852,11 +853,55 @@ class _CustomerTransactionListState
         matchingInvoice.id,
       );
 
-      // Generate PDF
-      final pdfFile = await PdfInvoiceService.exportPdf(
-        matchingInvoice,
-        items,
+      // Generate PDF using new SOP 4.0 format
+      final itemsWithProducts = await widget.db.invoiceDao
+          .getItemsWithProductsByInvoice(matchingInvoice.id);
+
+      final invoiceItems = itemsWithProducts.map((itemWithProduct) {
+        final item = itemWithProduct.$1;
+        final product = itemWithProduct.$2;
+        return ups.InvoiceItem(
+          id: item.id,
+          invoiceId: item.invoiceId,
+          description: product?.name ?? 'Product ${item.productId}',
+          unit: 'قطعة',
+          quantity: item.quantity,
+          unitPrice: item.price,
+          totalPrice: item.quantity * item.price,
+        );
+      }).toList();
+
+      final storeInfo = ups.StoreInfo(
+        storeName: 'المحل التجاري',
+        phone: '01234567890',
+        zipCode: '12345',
+        state: 'القاهرة',
+      );
+
+      final invoiceModel = ups.Invoice(
+        id: matchingInvoice.id,
+        invoiceNumber:
+            matchingInvoice.invoiceNumber ?? 'INV${matchingInvoice.id}',
         customerName: widget.customer.name,
+        customerPhone: widget.customer.phone ?? 'N/A',
+        customerZipCode: '',
+        customerState: '',
+        invoiceDate: matchingInvoice.date,
+        subtotal: matchingInvoice.totalAmount,
+        isCreditAccount: matchingInvoice.status != 'paid',
+        previousBalance: 0.0,
+        totalAmount: matchingInvoice.totalAmount,
+      );
+
+      final invoiceData = ups.InvoiceData(
+        invoice: invoiceModel,
+        items: invoiceItems,
+        storeInfo: storeInfo,
+      );
+
+      final pdfFile = await ups.UnifiedPrintService.exportToPDFFile(
+        documentType: ups.DocumentType.salesInvoice,
+        data: invoiceData,
       );
 
       if (context.mounted) {

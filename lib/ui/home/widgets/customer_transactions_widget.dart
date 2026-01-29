@@ -5,7 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:pos_offline_desktop/core/database/app_database.dart';
 import 'package:pos_offline_desktop/core/services/export_service.dart';
-import 'package:pos_offline_desktop/core/services/enhanced_account_statement_generator.dart';
+import 'package:pos_offline_desktop/ui/customer/services/enhanced_customer_statement_generator.dart';
 import 'package:pos_offline_desktop/l10n/l10n.dart';
 import 'customers_summary_widget.dart';
 import '../../customer/add_edit_customer_page.dart';
@@ -415,17 +415,15 @@ class _CustomerTransactionCardState extends State<_CustomerTransactionCard> {
         upToDate: _endDate,
       );
 
-      // Use enhanced account statement generator for better nested item display
-      final generator = EnhancedAccountStatementGenerator();
-      await generator.printAccountStatement(
-        entityName: customer.name,
-        entityType: 'Customer',
-        entityId: customer.id,
+      // Use enhanced customer statement generator for better display
+      await EnhancedCustomerStatementGenerator.generateStatement(
+        db: widget.db,
+        customerId: customer.id,
+        customerName: customer.name,
         fromDate: _startDate,
         toDate: _endDate,
-        ledgerDao: widget.db.ledgerDao,
-        invoiceDao: widget.db.invoiceDao,
-        customerDao: widget.db.customerDao,
+        openingBalance: openingBalance,
+        currentBalance: currentBalance,
       );
 
       if (mounted && context.mounted) {
@@ -768,20 +766,28 @@ class _CustomerTransactionCardState extends State<_CustomerTransactionCard> {
                             child: Text('لا توجد معاملات في الفترة المحددة'),
                           )
                         else
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: _transactions.map((transaction) {
-                              final isPurchase = transaction.debit > 0;
-                              final isSale = transaction.credit > 0;
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              minHeight: 200,
+                              maxHeight: 400,
+                            ),
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: _transactions.length,
+                              itemBuilder: (context, index) {
+                                final transaction = _transactions[index];
+                                final isPurchase = transaction.debit > 0;
+                                final isSale = transaction.credit > 0;
 
-                              return TransactionExpansionTile(
-                                transaction: transaction,
-                                isPurchase: isPurchase,
-                                isSale: isSale,
-                                db: widget.db,
-                                customer: widget.customer,
-                              );
-                            }).toList(),
+                                return TransactionExpansionTile(
+                                  transaction: transaction,
+                                  isPurchase: isPurchase,
+                                  isSale: isSale,
+                                  db: widget.db,
+                                  customer: widget.customer,
+                                );
+                              },
+                            ),
                           ),
                       ],
                     ),

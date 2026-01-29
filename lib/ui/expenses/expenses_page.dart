@@ -232,7 +232,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('إدارة المصروفات'),
+        title: const Text('إدارة المشتريات'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadExpenses),
           IconButton(

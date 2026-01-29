@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pos_offline_desktop/core/database/app_database.dart';
 import 'package:pos_offline_desktop/l10n/app_localizations.dart';
-import 'package:pos_offline_desktop/core/database/dao/expense_dao.dart';
 import 'package:pos_offline_desktop/core/services/purchases_pdf_service.dart';
-import 'package:pos_offline_desktop/core/services/printer_service.dart';
+import 'package:pos_offline_desktop/core/services/unified_print_service.dart'
+    as ups;
 import 'package:drift/drift.dart' as drift;
 import 'package:gap/gap.dart';
 
@@ -21,7 +21,7 @@ class _PurchasePageState extends State<PurchasePage> {
   final _amountController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  List<Expense> _recentPurchases = [];
+  List<Purchase> _recentPurchases = [];
   List<Supplier> _suppliers = [];
   Supplier? _selectedSupplier;
   bool _isLoading = true;
@@ -47,23 +47,15 @@ class _PurchasePageState extends State<PurchasePage> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final now = DateTime.now();
-      final startOfDay = DateTime(now.year, now.month, now.day);
-      final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
-
-      final dao = ExpenseDao(widget.db);
-      final allExpenses = await dao.getExpensesByDateRange(
+      final todayPurchases = await widget.db.purchaseDao.getTodayPurchases();
+      final allPurchases = await widget.db.purchaseDao.getPurchasesByDateRange(
         DateTime.now().subtract(const Duration(days: 30)),
         DateTime.now(),
       );
 
-      _recentPurchases = allExpenses
-          .where((e) => e.category == 'purchase')
-          .toList();
+      _recentPurchases = allPurchases;
 
-      _todayTotal = _recentPurchases
-          .where((e) => e.date.isAfter(startOfDay) && e.date.isBefore(endOfDay))
-          .fold(0, (sum, e) => sum + e.amount);
+      _todayTotal = todayPurchases.fold(0, (sum, p) => sum + p.totalAmount);
     } catch (e) {
       debugPrint('Error loading purchases: $e');
     } finally {
@@ -84,19 +76,19 @@ class _PurchasePageState extends State<PurchasePage> {
     }
 
     try {
-      final dao = ExpenseDao(widget.db);
-      final expenseId = DateTime.now().millisecondsSinceEpoch.toString();
-
-      await dao.insertExpense(
-        ExpensesCompanion(
-          id: drift.Value(expenseId),
-          description: drift.Value(_descriptionController.text),
-          amount: drift.Value(double.parse(_amountController.text)),
-          category: const drift.Value('purchase'),
-          date: drift.Value(DateTime.now()),
-          paymentMethod: drift.Value(_paymentMethod),
-          supplierId: drift.Value(_selectedSupplier?.id),
-        ),
+      final purchaseId = await widget.db.purchaseDao.insertPurchaseWithItems(
+        supplierId: _selectedSupplier?.id,
+        invoiceNumber: 'PUR-${DateTime.now().millisecondsSinceEpoch}',
+        description: _descriptionController.text,
+        totalAmount: double.parse(_amountController.text),
+        paidAmount: _paymentMethod == 'cash'
+            ? double.parse(_amountController.text)
+            : 0.0,
+        paymentMethod: _paymentMethod,
+        status: 'completed',
+        purchaseDate: DateTime.now(),
+        notes: null,
+        items: [], // Simple purchase with no items for now
       );
 
       // If credit, add to supplier ledger
@@ -104,7 +96,7 @@ class _PurchasePageState extends State<PurchasePage> {
         final supplier = _selectedSupplier!;
         await widget.db.ledgerDao.insertTransaction(
           LedgerTransactionsCompanion.insert(
-            id: '${expenseId}_ledger',
+            id: '${purchaseId}_ledger',
             entityType: 'Supplier',
             refId: supplier.id,
             date: DateTime.now(),
@@ -149,41 +141,44 @@ class _PurchasePageState extends State<PurchasePage> {
 
   Future<void> _createSampleData() async {
     try {
-      final dao = ExpenseDao(widget.db);
-
-      // Create sample purchases
-      await dao.insertExpense(
-        ExpensesCompanion(
-          id: drift.Value('sample1_${DateTime.now().millisecondsSinceEpoch}'),
-          description: drift.Value('شراء خامات بلاستيك'),
-          amount: drift.Value(500.0),
-          category: const drift.Value('purchase'),
-          date: drift.Value(DateTime.now().subtract(const Duration(days: 3))),
-          paymentMethod: drift.Value('cash'),
-        ),
+      // Create sample purchases using PurchaseDao
+      await widget.db.purchaseDao.insertPurchaseWithItems(
+        supplierId: null,
+        invoiceNumber: 'SAMPLE-${DateTime.now().millisecondsSinceEpoch}',
+        description: 'شراء خامات بلاستيك',
+        totalAmount: 500.0,
+        paidAmount: 500.0,
+        paymentMethod: 'cash',
+        status: 'completed',
+        purchaseDate: DateTime.now().subtract(const Duration(days: 3)),
+        notes: null,
+        items: [],
       );
 
-      await dao.insertExpense(
-        ExpensesCompanion(
-          id: drift.Value('sample2_${DateTime.now().millisecondsSinceEpoch}'),
-          description: drift.Value('شراء أوراق وعبوات'),
-          amount: drift.Value(250.0),
-          category: const drift.Value('purchase'),
-          date: drift.Value(DateTime.now().subtract(const Duration(days: 7))),
-          paymentMethod: drift.Value('credit'),
-          supplierId: drift.Value('sample_supplier_1'),
-        ),
+      await widget.db.purchaseDao.insertPurchaseWithItems(
+        supplierId: 'sample_supplier_1',
+        invoiceNumber: 'SAMPLE-${DateTime.now().millisecondsSinceEpoch + 1}',
+        description: 'شراء أوراق وعبوات',
+        totalAmount: 250.0,
+        paidAmount: 0.0,
+        paymentMethod: 'credit',
+        status: 'completed',
+        purchaseDate: DateTime.now().subtract(const Duration(days: 7)),
+        notes: null,
+        items: [],
       );
 
-      await dao.insertExpense(
-        ExpensesCompanion(
-          id: drift.Value('sample3_${DateTime.now().millisecondsSinceEpoch}'),
-          description: drift.Value('شراء أدوات مكتبية'),
-          amount: drift.Value(150.0),
-          category: const drift.Value('purchase'),
-          date: drift.Value(DateTime.now().subtract(const Duration(days: 15))),
-          paymentMethod: drift.Value('cash'),
-        ),
+      await widget.db.purchaseDao.insertPurchaseWithItems(
+        supplierId: null,
+        invoiceNumber: 'SAMPLE-${DateTime.now().millisecondsSinceEpoch + 2}',
+        description: 'شراء أدوات مكتبية',
+        totalAmount: 150.0,
+        paidAmount: 150.0,
+        paymentMethod: 'cash',
+        status: 'completed',
+        purchaseDate: DateTime.now().subtract(const Duration(days: 15)),
+        notes: null,
+        items: [],
       );
 
       // Reload data after adding samples
@@ -212,25 +207,7 @@ class _PurchasePageState extends State<PurchasePage> {
   Future<void> _printPurchases() async {
     if (_recentPurchases.isEmpty) return;
     try {
-      // Convert expenses to purchase-like objects for PDF service
-      final purchases = _recentPurchases.map((expense) {
-        return Purchase(
-          id: expense.id,
-          supplierId: expense.supplierId,
-          invoiceNumber: 'EXP-${expense.id}',
-          description: expense.description,
-          totalAmount: expense.amount,
-          paidAmount: expense.amount,
-          paymentMethod: expense.paymentMethod,
-          status: 'completed',
-          purchaseDate: expense.date,
-          createdAt: expense.date,
-          notes: null,
-          isDeleted: false,
-        );
-      }).toList();
-
-      await PurchasesPdfService.generatePurchasesPdf(purchases);
+      await PurchasesPdfService.generatePurchasesPdf(_recentPurchases);
     } catch (e) {
       debugPrint('Error printing purchases: $e');
       if (mounted) {
@@ -469,7 +446,7 @@ class _PurchasePageState extends State<PurchasePage> {
                                   Text(
                                     DateFormat(
                                       'yyyy/MM/dd HH:mm',
-                                    ).format(purchase.date),
+                                    ).format(purchase.purchaseDate),
                                   ),
                                   if (supplier != null)
                                     Text(
@@ -502,30 +479,59 @@ class _PurchasePageState extends State<PurchasePage> {
                                     onPressed: () async {
                                       final scaffoldMessenger =
                                           ScaffoldMessenger.of(context);
-                                      await PrinterService.printThermalReceipt(
-                                        receiptNumber: 'PUR-${purchase.id}',
-                                        date: purchase.date,
+
+                                      // Create purchase data for UnifiedPrintService
+                                      final purchaseItems = [
+                                        ups.InvoiceItem(
+                                          id: 0,
+                                          invoiceId:
+                                              int.tryParse(purchase.id) ?? 0,
+                                          description: purchase.description,
+                                          unit: 'قطعة',
+                                          quantity: 1,
+                                          unitPrice: purchase.totalAmount,
+                                          totalPrice: purchase.totalAmount,
+                                        ),
+                                      ];
+
+                                      final storeInfo = ups.StoreInfo(
+                                        storeName: 'المحل التجاري',
+                                        phone: '01234567890',
+                                        zipCode: '12345',
+                                        state: 'القاهرة',
+                                      );
+
+                                      final purchaseInvoice = ups.Invoice(
+                                        id: int.tryParse(purchase.id) ?? 0,
+                                        invoiceNumber: 'PUR-${purchase.id}',
                                         customerName:
                                             supplier?.name ?? 'مورد غير محدد',
-                                        items: [
-                                          {
-                                            'name': purchase.description,
-                                            'quantity': 1,
-                                            'price': purchase.amount,
-                                          },
-                                        ],
-                                        totalAmount: purchase.amount,
-                                        paymentMethod: purchase.paymentMethod,
+                                        customerPhone: '',
+                                        customerZipCode: '',
+                                        customerState: '',
+                                        invoiceDate: purchase.purchaseDate,
+                                        subtotal: purchase.totalAmount,
+                                        isCreditAccount:
+                                            purchase.paymentMethod
+                                                .toLowerCase() !=
+                                            'cash',
+                                        previousBalance: 0.0,
+                                        totalAmount: purchase.totalAmount,
                                       );
-                                      if (mounted) {
-                                        scaffoldMessenger.showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'تم إرسال الطباعة الحرارية',
-                                            ),
-                                          ),
-                                        );
-                                      }
+
+                                      final invoiceData = ups.InvoiceData(
+                                        invoice: purchaseInvoice,
+                                        items: purchaseItems,
+                                        storeInfo: storeInfo,
+                                      );
+
+                                      // Print using new SOP 4.0 format
+                                      await ups
+                                          .UnifiedPrintService.printToThermalPrinter(
+                                        documentType:
+                                            ups.DocumentType.salesInvoice,
+                                        data: invoiceData,
+                                      );
                                     },
                                   ),
                                 ],

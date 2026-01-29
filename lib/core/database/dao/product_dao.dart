@@ -61,6 +61,11 @@ class ProductDao extends DatabaseAccessor<AppDatabase> with _$ProductDaoMixin {
     return query.map((row) => row.read(products.category)!).get();
   }
 
+  /// Get product by ID
+  Future<Product?> getProductById(int id) {
+    return (select(products)..where((p) => p.id.equals(id))).getSingleOrNull();
+  }
+
   /// Filter products by category and unit
   Future<List<Product>> filterProducts({
     String? category,

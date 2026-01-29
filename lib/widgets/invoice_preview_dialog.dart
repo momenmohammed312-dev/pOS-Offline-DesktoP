@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pos_offline_desktop/core/database/app_database.dart';
-import 'package:pos_offline_desktop/core/services/pdf_invoice_service.dart';
+import 'package:pos_offline_desktop/core/services/unified_print_service.dart'
+    as ups;
 
 /// Invoice Preview Dialog Widget
 /// Shows PDF preview with print/share options
@@ -10,12 +11,14 @@ class InvoicePreviewDialog extends StatelessWidget {
   final Invoice invoice;
   final List<InvoiceItem> items;
   final String customerName;
+  final String? customerId;
 
   const InvoicePreviewDialog({
     super.key,
     required this.invoice,
     required this.items,
     this.customerName = 'عميل',
+    this.customerId,
   });
 
   @override
@@ -43,11 +46,68 @@ class InvoicePreviewDialog extends StatelessWidget {
                   tooltip: 'تصدير PDF',
                   onPressed: () async {
                     try {
-                      final pdfFile = await PdfInvoiceService.exportPdf(
-                        invoice,
-                        items,
-                        customerName: customerName,
+                      // Create InvoiceData for UnifiedPrintService
+                      final invoiceItems = items
+                          .map(
+                            (item) => ups.InvoiceItem(
+                              id: item.id,
+                              invoiceId: item.invoiceId,
+                              description: 'منتج #${item.productId}',
+                              unit: 'قطعة',
+                              quantity: item.quantity,
+                              unitPrice: item.price,
+                              totalPrice: item.quantity * item.price,
+                            ),
+                          )
+                          .toList();
+
+                      final storeInfo = ups.StoreInfo(
+                        storeName: 'المحل التجاري',
+                        phone: '01234567890',
+                        zipCode: '12345',
+                        state: 'القاهرة',
                       );
+
+                      // Get customer's actual previous balance
+                      double previousBalance = 0.0;
+                      if (customerId != null && customerId != 'cash_customer') {
+                        // Note: This would need database access - for now using 0.0
+                        // In a real implementation, you'd pass the database instance
+                        previousBalance = 0.0;
+                      }
+
+                      final invoiceModel = ups.Invoice(
+                        id: invoice.id,
+                        invoiceNumber:
+                            invoice.invoiceNumber ?? 'INV${invoice.id}',
+                        customerName: customerName,
+                        customerPhone: 'N/A',
+                        customerZipCode: '',
+                        customerState: '',
+                        invoiceDate: invoice.date,
+                        subtotal: items.fold(
+                          0.0,
+                          (sum, item) => sum + (item.quantity * item.price),
+                        ),
+                        isCreditAccount: invoice.paymentMethod == 'credit',
+                        previousBalance: previousBalance,
+                        totalAmount: items.fold(
+                          0.0,
+                          (sum, item) => sum + (item.quantity * item.price),
+                        ),
+                      );
+
+                      final invoiceData = ups.InvoiceData(
+                        invoice: invoiceModel,
+                        items: invoiceItems,
+                        storeInfo: storeInfo,
+                      );
+
+                      final pdfFile =
+                          await ups.UnifiedPrintService.exportToPDFFile(
+                            documentType: ups.DocumentType.salesInvoice,
+                            data: invoiceData,
+                          );
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -73,11 +133,70 @@ class InvoicePreviewDialog extends StatelessWidget {
             // The PDF Viewer
             Expanded(
               child: PdfPreview(
-                build: (format) => PdfInvoiceService.generateInvoicePdf(
-                  invoice,
-                  items,
-                  customerName: customerName,
-                ),
+                build: (format) async {
+                  // Create InvoiceData for UnifiedPrintService
+                  final invoiceItems = items
+                      .map(
+                        (item) => ups.InvoiceItem(
+                          id: item.id,
+                          invoiceId: item.invoiceId,
+                          description: 'منتج #${item.productId}',
+                          unit: 'قطعة',
+                          quantity: item.quantity,
+                          unitPrice: item.price,
+                          totalPrice: item.quantity * item.price,
+                        ),
+                      )
+                      .toList();
+
+                  final storeInfo = ups.StoreInfo(
+                    storeName: 'المحل التجاري',
+                    phone: '01234567890',
+                    zipCode: '12345',
+                    state: 'القاهرة',
+                  );
+
+                  // Get customer's actual previous balance
+                  double previousBalance = 0.0;
+                  if (customerId != null && customerId != 'cash_customer') {
+                    // Note: This would need database access - for now using 0.0
+                    // In a real implementation, you'd pass the database instance
+                    previousBalance = 0.0;
+                  }
+
+                  final invoiceModel = ups.Invoice(
+                    id: invoice.id,
+                    invoiceNumber: invoice.invoiceNumber ?? 'INV${invoice.id}',
+                    customerName: customerName,
+                    customerPhone: 'N/A',
+                    customerZipCode: '',
+                    customerState: '',
+                    invoiceDate: invoice.date,
+                    subtotal: items.fold(
+                      0.0,
+                      (sum, item) => sum + (item.quantity * item.price),
+                    ),
+                    isCreditAccount: invoice.paymentMethod == 'credit',
+                    previousBalance: previousBalance,
+                    totalAmount: items.fold(
+                      0.0,
+                      (sum, item) => sum + (item.quantity * item.price),
+                    ),
+                  );
+
+                  final invoiceData = ups.InvoiceData(
+                    invoice: invoiceModel,
+                    items: invoiceItems,
+                    storeInfo: storeInfo,
+                  );
+
+                  final pdf =
+                      await ups.UnifiedPrintService.generateUnifiedDocument(
+                        documentType: ups.DocumentType.salesInvoice,
+                        data: invoiceData,
+                      );
+                  return pdf.save();
+                },
                 allowPrinting: true,
                 allowSharing: true,
                 initialPageFormat: PdfPageFormat.a4,
@@ -105,11 +224,69 @@ class InvoicePreviewDialog extends StatelessWidget {
                   ElevatedButton.icon(
                     onPressed: () async {
                       try {
-                        final pdfFile = await PdfInvoiceService.exportPdf(
-                          invoice,
-                          items,
-                          customerName: customerName,
+                        // Create InvoiceData for UnifiedPrintService
+                        final invoiceItems = items
+                            .map(
+                              (item) => ups.InvoiceItem(
+                                id: item.id,
+                                invoiceId: item.invoiceId,
+                                description: 'منتج #${item.productId}',
+                                unit: 'قطعة',
+                                quantity: item.quantity,
+                                unitPrice: item.price,
+                                totalPrice: item.quantity * item.price,
+                              ),
+                            )
+                            .toList();
+
+                        final storeInfo = ups.StoreInfo(
+                          storeName: 'المحل التجاري',
+                          phone: '01234567890',
+                          zipCode: '12345',
+                          state: 'القاهرة',
                         );
+
+                        // Get customer's actual previous balance
+                        double previousBalance = 0.0;
+                        if (customerId != null &&
+                            customerId != 'cash_customer') {
+                          // Note: This would need database access - for now using 0.0
+                          // In a real implementation, you'd pass the database instance
+                          previousBalance = 0.0;
+                        }
+
+                        final invoiceModel = ups.Invoice(
+                          id: invoice.id,
+                          invoiceNumber:
+                              invoice.invoiceNumber ?? 'INV${invoice.id}',
+                          customerName: customerName,
+                          customerPhone: 'N/A',
+                          customerZipCode: '',
+                          customerState: '',
+                          invoiceDate: invoice.date,
+                          subtotal: items.fold(
+                            0.0,
+                            (sum, item) => sum + (item.quantity * item.price),
+                          ),
+                          isCreditAccount: invoice.paymentMethod == 'credit',
+                          previousBalance: previousBalance,
+                          totalAmount: items.fold(
+                            0.0,
+                            (sum, item) => sum + (item.quantity * item.price),
+                          ),
+                        );
+
+                        final invoiceData = ups.InvoiceData(
+                          invoice: invoiceModel,
+                          items: invoiceItems,
+                          storeInfo: storeInfo,
+                        );
+
+                        final pdfFile =
+                            await ups.UnifiedPrintService.exportToPDFFile(
+                              documentType: ups.DocumentType.salesInvoice,
+                              data: invoiceData,
+                            );
                         if (context.mounted) {
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -152,19 +329,68 @@ class InvoicePreviewDialog extends StatelessWidget {
                           );
                         }
 
-                        // Generate PDF with proper error handling
-                        final pdfBytes =
-                            await PdfInvoiceService.generateInvoicePdf(
-                              invoice,
-                              items,
-                              customerName: customerName,
-                            );
+                        // Create InvoiceData for UnifiedPrintService
+                        final invoiceItems = items
+                            .map(
+                              (item) => ups.InvoiceItem(
+                                id: item.id,
+                                invoiceId: item.invoiceId,
+                                description: 'منتج #${item.productId}',
+                                unit: 'قطعة',
+                                quantity: item.quantity,
+                                unitPrice: item.price,
+                                totalPrice: item.quantity * item.price,
+                              ),
+                            )
+                            .toList();
 
-                        // Show print dialog
-                        await Printing.layoutPdf(
-                          onLayout: (_) => pdfBytes,
-                          name:
-                              'فاتورة #${invoice.invoiceNumber ?? invoice.id}',
+                        final storeInfo = ups.StoreInfo(
+                          storeName: 'المحل التجاري',
+                          phone: '01234567890',
+                          zipCode: '12345',
+                          state: 'القاهرة',
+                        );
+
+                        // Get customer's actual previous balance
+                        double previousBalance = 0.0;
+                        if (customerId != null &&
+                            customerId != 'cash_customer') {
+                          // Note: This would need database access - for now using 0.0
+                          // In a real implementation, you'd pass the database instance
+                          previousBalance = 0.0;
+                        }
+
+                        final invoiceModel = ups.Invoice(
+                          id: invoice.id,
+                          invoiceNumber:
+                              invoice.invoiceNumber ?? 'INV${invoice.id}',
+                          customerName: customerName,
+                          customerPhone: 'N/A',
+                          customerZipCode: '',
+                          customerState: '',
+                          invoiceDate: invoice.date,
+                          subtotal: items.fold(
+                            0.0,
+                            (sum, item) => sum + (item.quantity * item.price),
+                          ),
+                          isCreditAccount: invoice.paymentMethod == 'credit',
+                          previousBalance: previousBalance,
+                          totalAmount: items.fold(
+                            0.0,
+                            (sum, item) => sum + (item.quantity * item.price),
+                          ),
+                        );
+
+                        final invoiceData = ups.InvoiceData(
+                          invoice: invoiceModel,
+                          items: invoiceItems,
+                          storeInfo: storeInfo,
+                        );
+
+                        // Print using new SOP 4.0 format
+                        await ups.UnifiedPrintService.printToThermalPrinter(
+                          documentType: ups.DocumentType.salesInvoice,
+                          data: invoiceData,
                         );
 
                         // Show success message
@@ -210,6 +436,7 @@ void showInvoicePreview(
   Invoice invoice,
   List<InvoiceItem> items, {
   String customerName = 'عميل',
+  String? customerId,
 }) {
   showDialog(
     context: context,
@@ -217,6 +444,7 @@ void showInvoicePreview(
       invoice: invoice,
       items: items,
       customerName: customerName,
+      customerId: customerId,
     ),
   );
 }

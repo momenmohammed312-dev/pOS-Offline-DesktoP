@@ -4,16 +4,12 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;
-import 'dart:io';
 import 'package:pos_offline_desktop/core/database/app_database.dart';
-import 'package:pos_offline_desktop/core/utils/arabic_helper.dart';
 
 class EnhancedCustomerStatementGenerator {
-  static const String _branding = 'Developed by MO2';
+  static const String _companyName = 'شركة رحيم للأعلاف والمواد الغذائية';
 
-  // Font loading
+  // Font loading with better error handling
   static Future<Map<String, pw.Font?>> _loadFonts() async {
     pw.Font? arabicFont;
     pw.Font? arabicBoldFont;
@@ -27,7 +23,11 @@ class EnhancedCustomerStatementGenerator {
       if (regularFontData.lengthInBytes > 100) {
         arabicFont = pw.Font.ttf(regularFontData);
       }
+    } catch (e) {
+      debugPrint('Failed to load Arabic regular font: $e');
+    }
 
+    try {
       // Load Arabic bold font (using regular as fallback)
       final boldFontData = await rootBundle.load(
         'assets/fonts/NotoNaskhArabic-Regular.ttf',
@@ -36,44 +36,21 @@ class EnhancedCustomerStatementGenerator {
         arabicBoldFont = pw.Font.ttf(boldFontData);
       }
     } catch (e) {
-      debugPrint('Failed to load Arabic fonts: $e');
+      debugPrint('Failed to load Arabic bold font: $e');
     }
 
     // Latin font fallback
     latinFont = pw.Font.helvetica();
+
+    // Ensure we have at least some font for Arabic
+    arabicFont ??= latinFont;
+    arabicBoldFont ??= latinFont;
 
     return {
       'arabic': arabicFont,
       'arabicBold': arabicBoldFont,
       'latin': latinFont,
     };
-  }
-
-  // Helper method to get invoice items with products
-  static Future<List<Map<String, dynamic>>> _getInvoiceItemsWithProducts(
-    AppDatabase db,
-    int invoiceId,
-  ) async {
-    try {
-      final items = await db.invoiceDao.getItemsWithProductsByInvoice(
-        invoiceId,
-      );
-      return items.map((itemWithProduct) {
-        final item = itemWithProduct.$1;
-        final product = itemWithProduct.$2;
-        final unitPrice = item.quantity > 0 ? item.price / item.quantity : 0.0;
-
-        return {
-          'productName': product?.name ?? 'منتج ${item.productId}',
-          'quantity': item.quantity,
-          'unitPrice': unitPrice,
-          'total': item.price,
-        };
-      }).toList();
-    } catch (e) {
-      debugPrint('Error in _getInvoiceItemsWithProducts: $e');
-      return [];
-    }
   }
 
   // Generate enhanced customer statement PDF
@@ -86,21 +63,112 @@ class EnhancedCustomerStatementGenerator {
     required double openingBalance,
     required double currentBalance,
   }) async {
+    debugPrint('=== GENERATOR START ===');
+    debugPrint('Customer: $customerName ($customerId)');
+    debugPrint('Date Range: $fromDate to $toDate');
+
     final fonts = await _loadFonts();
     final pdf = pw.Document();
 
-    // Get transactions
-    final transactions = await _getEnhancedTransactions(
-      db,
+    // Get transactions with running balance
+    debugPrint('GENERATOR: Fetching transactions...');
+
+    // First, try to get all transactions without date filter to compare
+    try {
+      debugPrint('GENERATOR: Getting all transactions...');
+      final allTransactions = await db.ledgerDao.getTransactionsByEntity(
+        'Customer',
+        customerId,
+      );
+      debugPrint(
+        'GENERATOR: Found ${allTransactions.length} total transactions',
+      );
+
+      // Show first 5 transactions for comparison
+      for (int i = 0; i < allTransactions.length && i < 5; i++) {
+        final tx = allTransactions[i];
+        debugPrint(
+          'GENERATOR: All TX $i: ${tx.description} - ${tx.date} - Debit: ${tx.debit}, Credit: ${tx.credit}',
+        );
+      }
+    } catch (e) {
+      debugPrint('GENERATOR: Error getting all transactions: $e');
+    }
+
+    // Now get transactions with running balance
+    debugPrint('GENERATOR: Getting transactions with running balance...');
+    debugPrint('GENERATOR: Date range: $fromDate to $toDate');
+    debugPrint('GENERATOR: Customer ID: $customerId');
+
+    final transactions = await db.ledgerDao.getTransactionsWithRunningBalance(
+      'Customer',
       customerId,
       fromDate,
       toDate,
     );
 
+    debugPrint(
+      'GENERATOR: Found ${transactions.length} transactions with running balance',
+    );
+    debugPrint('GENERATOR: Opening Balance: $openingBalance');
+    debugPrint('GENERATOR: Current Balance: $currentBalance');
+
+    // Debug each transaction with running balance
+    for (int i = 0; i < transactions.length; i++) {
+      final tx = transactions[i];
+      debugPrint(
+        'GENERATOR: TX with Balance $i: ${tx.transaction.description} - ${tx.transaction.date} - Debit: ${tx.transaction.debit}, Credit: ${tx.transaction.credit}, Running: ${tx.runningBalance}',
+      );
+    }
+
+    // Verify logic: check if transactions make sense
+    if (transactions.isNotEmpty) {
+      debugPrint('GENERATOR: === LOGIC VERIFICATION ===');
+      debugPrint(
+        'GENERATOR: First transaction date: ${transactions.first.transaction.date}',
+      );
+      debugPrint(
+        'GENERATOR: Last transaction date: ${transactions.last.transaction.date}',
+      );
+      debugPrint('GENERATOR: Date range covers: $fromDate to $toDate');
+
+      // Check if transactions are within date range
+      int outOfRangeCount = 0;
+      for (final tx in transactions) {
+        if (tx.transaction.date.isBefore(fromDate) ||
+            tx.transaction.date.isAfter(toDate)) {
+          outOfRangeCount++;
+        }
+      }
+      debugPrint('GENERATOR: Transactions out of range: $outOfRangeCount');
+    }
+
+    debugPrint('GENERATOR: Building PDF...');
+    debugPrint('GENERATOR: === PDF GENERATION VERIFICATION ===');
+    debugPrint('GENERATOR: Customer: $customerName ($customerId)');
+    debugPrint('GENERATOR: Transactions count: ${transactions.length}');
+    debugPrint('GENERATOR: Opening Balance: $openingBalance');
+    debugPrint('GENERATOR: Current Balance: $currentBalance');
+
+    // Verify transaction data before PDF generation
+    if (transactions.isNotEmpty) {
+      debugPrint('GENERATOR: First transaction verification:');
+      final firstTx = transactions.first;
+      debugPrint('GENERATOR: - Transaction type: ${firstTx.runtimeType}');
+      debugPrint('GENERATOR: - Transaction ID: ${firstTx.transaction.id}');
+      debugPrint(
+        'GENERATOR: - Description: ${firstTx.transaction.description}',
+      );
+      debugPrint(
+        'GENERATOR: - Debit: ${firstTx.transaction.debit}, Credit: ${firstTx.transaction.credit}',
+      );
+      debugPrint('GENERATOR: - Running Balance: ${firstTx.runningBalance}');
+    }
+
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
+        margin: const pw.EdgeInsets.all(20),
         build: (pw.Context context) {
           return pw.Directionality(
             textDirection: pw.TextDirection.rtl,
@@ -116,14 +184,23 @@ class EnhancedCustomerStatementGenerator {
                   fromDate,
                   toDate,
                 ),
-                pw.SizedBox(height: 20),
+                pw.SizedBox(height: 16),
+
+                // Financial Summary
+                _buildFinancialSummary(
+                  fonts,
+                  openingBalance,
+                  currentBalance,
+                  transactions,
+                ),
+                pw.SizedBox(height: 16),
 
                 // Main Transaction Table
-                _buildMainTransactionTable(transactions, fonts),
-                pw.SizedBox(height: 20),
+                _buildMainTransactionTable(transactions, fonts, openingBalance),
+                pw.SizedBox(height: 16),
 
                 // Footer
-                _buildFooterSection(fonts),
+                _buildFooterSection(fonts, context),
               ],
             ),
           );
@@ -131,7 +208,11 @@ class EnhancedCustomerStatementGenerator {
       ),
     );
 
-    await _saveAndPrintPdf(pdf, 'كشف حساب $customerName.pdf');
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) => pdf.save(),
+      name: 'كشف حساب عميل - $customerName',
+      format: PdfPageFormat.a4,
+    );
   }
 
   // Header & Branding Section
@@ -152,11 +233,11 @@ class EnhancedCustomerStatementGenerator {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
-          // Developer Branding
+          // Company Name only
           pw.Text(
-            _branding,
+            _companyName, // Use simple text without reshaping to avoid Bidi errors
             style: pw.TextStyle(
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: pw.FontWeight.bold,
               color: PdfColors.blue800,
               font: fonts['arabicBold'],
@@ -176,7 +257,7 @@ class EnhancedCustomerStatementGenerator {
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
                     pw.Text(
-                      ArabicHelper.reshapedText('اسم العميل: $customerName'),
+                      'اسم العميل: $customerName', // Use simple text without reshaping
                       style: pw.TextStyle(
                         fontSize: 14,
                         fontWeight: pw.FontWeight.bold,
@@ -185,7 +266,7 @@ class EnhancedCustomerStatementGenerator {
                       textDirection: pw.TextDirection.rtl,
                     ),
                     pw.Text(
-                      ArabicHelper.reshapedText('كشف حساب عميل'),
+                      'كشف حساب عميل', // Use simple text without reshaping
                       style: pw.TextStyle(
                         fontSize: 18,
                         fontWeight: pw.FontWeight.bold,
@@ -202,9 +283,7 @@ class EnhancedCustomerStatementGenerator {
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
                     pw.Text(
-                      ArabicHelper.reshapedText(
-                        'الرصيد الحالي: ${formatCurrency(currentBalance)}',
-                      ),
+                      'الرصيد الحالي: ${formatCurrency(currentBalance)}', // Use simple text
                       style: pw.TextStyle(
                         fontSize: 14,
                         fontWeight: pw.FontWeight.bold,
@@ -216,9 +295,7 @@ class EnhancedCustomerStatementGenerator {
                       textDirection: pw.TextDirection.rtl,
                     ),
                     pw.Text(
-                      ArabicHelper.reshapedText(
-                        'الرصيد السابق: ${formatCurrency(openingBalance)}',
-                      ),
+                      'الرصيد السابق: ${formatCurrency(openingBalance)}', // Use simple text
                       style: pw.TextStyle(fontSize: 12, font: fonts['arabic']),
                       textDirection: pw.TextDirection.rtl,
                     ),
@@ -231,9 +308,7 @@ class EnhancedCustomerStatementGenerator {
                   mainAxisAlignment: pw.MainAxisAlignment.center,
                   children: [
                     pw.Text(
-                      ArabicHelper.reshapedText(
-                        'الفترة: من ${DateFormat('yyyy/MM/dd').format(fromDate)} إلى ${DateFormat('yyyy/MM/dd').format(toDate)}',
-                      ),
+                      'الفترة: من ${DateFormat('yyyy/MM/dd').format(fromDate)} إلى ${DateFormat('yyyy/MM/dd').format(toDate)}', // Use simple text
                       style: pw.TextStyle(fontSize: 12, font: fonts['arabic']),
                       textDirection: pw.TextDirection.rtl,
                     ),
@@ -247,402 +322,367 @@ class EnhancedCustomerStatementGenerator {
     );
   }
 
-  // Main Transaction Table Layout
-  static pw.Widget _buildMainTransactionTable(
-    List<Map<String, dynamic>> transactions,
+  // Financial Summary Section
+  static pw.Widget _buildFinancialSummary(
     Map<String, pw.Font?> fonts,
+    double openingBalance,
+    double currentBalance,
+    List transactions,
   ) {
-    return pw.Expanded(
+    double totalDebit = 0.0;
+    double totalCredit = 0.0;
+
+    debugPrint(
+      'FINANCIAL SUMMARY: Processing ${transactions.length} transactions',
+    );
+
+    for (final tx in transactions) {
+      debugPrint('FINANCIAL: Processing transaction type: ${tx.runtimeType}');
+      debugPrint('FINANCIAL: Transaction object: ${tx.transaction}');
+
+      final debit =
+          tx.transaction.debit ?? 0.0; // Access through transaction property
+      final credit =
+          tx.transaction.credit ?? 0.0; // Access through transaction property
+      totalDebit += debit;
+      totalCredit += credit;
+
+      debugPrint('FINANCIAL: TX - Debit: $debit, Credit: $credit');
+    }
+
+    debugPrint(
+      'FINANCIAL SUMMARY: Total Debit: $totalDebit, Total Credit: $totalCredit',
+    );
+    debugPrint(
+      'FINANCIAL SUMMARY: Opening: $openingBalance, Current: $currentBalance',
+    );
+
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(16),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.grey100,
+        border: pw.Border.all(color: PdfColors.grey400),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+      ),
       child: pw.Table(
-        border: pw.TableBorder.all(color: PdfColors.grey400),
         columnWidths: {
-          0: const pw.FlexColumnWidth(0.8), // ID (الرقم)
-          1: const pw.FlexColumnWidth(1.2), // Date (التاريخ)
-          2: const pw.FlexColumnWidth(2.5), // Statement (البيان)
-          3: const pw.FlexColumnWidth(1.0), // Debit (مدين)
-          4: const pw.FlexColumnWidth(1.0), // Credit (دائن)
-          5: const pw.FlexColumnWidth(1.2), // Balance (الرصيد)
+          0: const pw.FlexColumnWidth(2),
+          1: const pw.FlexColumnWidth(1),
         },
+        border: pw.TableBorder.all(color: PdfColors.grey300),
         children: [
-          // Table Header
+          pw.TableRow(
+            decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+            children: [
+              _buildTableCell(
+                'الرصيد السابق',
+                fonts['arabicBold'],
+                isHeader: true,
+              ),
+              _buildTableCell(
+                formatCurrency(openingBalance),
+                fonts['arabic'],
+                isHeader: true,
+              ),
+            ],
+          ),
+          pw.TableRow(
+            children: [
+              _buildTableCell(
+                'إجمالي المدين',
+                fonts['arabicBold'],
+                isHeader: true,
+              ),
+              _buildTableCell(
+                formatCurrency(totalDebit),
+                fonts['arabic'],
+                isHeader: true,
+              ),
+            ],
+          ),
+          pw.TableRow(
+            children: [
+              _buildTableCell(
+                'إجمالي الدائن',
+                fonts['arabicBold'],
+                isHeader: true,
+              ),
+              _buildTableCell(
+                formatCurrency(totalCredit),
+                fonts['arabic'],
+                isHeader: true,
+              ),
+            ],
+          ),
           pw.TableRow(
             decoration: const pw.BoxDecoration(color: PdfColors.grey300),
             children: [
-              _buildHeaderCell('الرقم', fonts['arabicBold']),
-              _buildHeaderCell('التاريخ', fonts['arabicBold']),
-              _buildHeaderCell('البيان', fonts['arabicBold']),
-              _buildHeaderCell('مدين', fonts['arabicBold']),
-              _buildHeaderCell('دائن', fonts['arabicBold']),
-              _buildHeaderCell('الرصيد', fonts['arabicBold']),
+              _buildTableCell(
+                'الرصيد النهائي',
+                fonts['arabicBold'],
+                isHeader: true,
+              ),
+              _buildTableCell(
+                formatCurrency(currentBalance),
+                fonts['arabicBold'],
+                isHeader: true,
+                color: currentBalance > 0 ? PdfColors.red : PdfColors.green,
+              ),
             ],
           ),
-          // Transaction Rows
-          ...transactions.asMap().entries.map((entry) {
-            final index = entry.key;
-            final transaction = entry.value;
-            return pw.TableRow(
-              children: [
-                // ID
-                _buildDataCell('${index + 1}', fonts['arabic'], isBold: true),
-                // Date
-                _buildDataCell(
-                  DateFormat('yyyy/MM/dd').format(transaction['date']),
-                  fonts['arabic'],
-                ),
-                // Statement (with nested details for sales)
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(8),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      // Main transaction description
-                      pw.Text(
-                        ArabicHelper.reshapedText(
-                          transaction['description'] ?? '',
-                        ),
-                        style: pw.TextStyle(
-                          fontWeight: pw.FontWeight.bold,
-                          font: fonts['arabicBold'],
-                        ),
-                        textDirection: pw.TextDirection.rtl,
-                      ),
-                      // Nested itemization for sales
-                      if (transaction['type'] == 'sale' &&
-                          transaction['items'] != null &&
-                          transaction['items'].isNotEmpty) ...[
-                        pw.SizedBox(height: 4),
-                        _buildNestedItemization(transaction['items'], fonts),
-                      ],
-                    ],
-                  ),
-                ),
-                // Debit
-                _buildDataCell(
-                  formatCurrency(transaction['debit'] ?? 0.0),
-                  fonts['arabic'],
-                  isBold: true,
-                ),
-                // Credit
-                _buildDataCell(
-                  formatCurrency(transaction['credit'] ?? 0.0),
-                  fonts['arabic'],
-                  isBold: true,
-                ),
-                // Balance (Red for debt)
-                _buildDataCell(
-                  formatCurrency(transaction['balance'] ?? 0.0),
-                  fonts['arabic'],
-                  isBold: true,
-                  color: (transaction['balance'] ?? 0.0) > 0
-                      ? PdfColors.red
-                      : PdfColors.black,
-                ),
-              ],
-            );
-          }),
         ],
       ),
     );
   }
 
-  // Nested Itemization for Sales
-  static pw.Widget _buildNestedItemization(
-    List<dynamic> items,
+  // Traditional Transaction Table
+  static pw.Widget _buildMainTransactionTable(
+    List transactions,
     Map<String, pw.Font?> fonts,
+    double openingBalance,
   ) {
-    return pw.Container(
-      margin: const pw.EdgeInsets.only(right: 8, top: 4),
-      padding: const pw.EdgeInsets.all(6),
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-        color: PdfColors.grey50,
-      ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          // Items Table Header
-          pw.Container(
-            padding: const pw.EdgeInsets.only(bottom: 4),
-            child: pw.Row(
-              children: [
-                pw.Expanded(
-                  flex: 3,
-                  child: pw.Text(
-                    ArabicHelper.reshapedText('الصنف'),
-                    style: pw.TextStyle(
-                      fontSize: 8,
-                      fontWeight: pw.FontWeight.bold,
-                      font: fonts['arabicBold'],
-                    ),
-                    textDirection: pw.TextDirection.rtl,
-                  ),
-                ),
-                pw.Expanded(
-                  flex: 1,
-                  child: pw.Text(
-                    ArabicHelper.reshapedText('كمية'),
-                    style: pw.TextStyle(
-                      fontSize: 8,
-                      fontWeight: pw.FontWeight.bold,
-                      font: fonts['arabicBold'],
-                    ),
-                    textDirection: pw.TextDirection.rtl,
-                  ),
-                ),
-                pw.Expanded(
-                  flex: 1,
-                  child: pw.Text(
-                    ArabicHelper.reshapedText('سعر'),
-                    style: pw.TextStyle(
-                      fontSize: 8,
-                      fontWeight: pw.FontWeight.bold,
-                      font: fonts['arabicBold'],
-                    ),
-                    textDirection: pw.TextDirection.rtl,
-                  ),
-                ),
-                pw.Expanded(
-                  flex: 1,
-                  child: pw.Text(
-                    ArabicHelper.reshapedText('إجمالي'),
-                    style: pw.TextStyle(
-                      fontSize: 8,
-                      fontWeight: pw.FontWeight.bold,
-                      font: fonts['arabicBold'],
-                    ),
-                    textDirection: pw.TextDirection.rtl,
-                  ),
-                ),
-              ],
-            ),
+    if (transactions.isEmpty) {
+      return pw.Container(
+        padding: const pw.EdgeInsets.all(16),
+        alignment: pw.Alignment.center,
+        child: pw.Text(
+          'No transactions in this period',
+          style: pw.TextStyle(
+            fontSize: 14,
+            color: PdfColors.grey600,
+            fontWeight: pw.FontWeight.bold,
+            font: fonts['arabicBold'],
           ),
-          // Items
-          ...items.map(
-            (item) => pw.Container(
-              padding: const pw.EdgeInsets.symmetric(vertical: 2),
-              child: pw.Row(
-                children: [
-                  pw.Expanded(
-                    flex: 3,
-                    child: pw.Text(
-                      ArabicHelper.reshapedText(item['productName'] ?? ''),
-                      style: pw.TextStyle(fontSize: 8, font: fonts['arabic']),
-                      textDirection: pw.TextDirection.rtl,
-                    ),
-                  ),
-                  pw.Expanded(
-                    flex: 1,
-                    child: pw.Text(
-                      '${item['quantity'] ?? 0}',
-                      style: pw.TextStyle(fontSize: 8, font: fonts['arabic']),
-                      textAlign: pw.TextAlign.center,
-                    ),
-                  ),
-                  pw.Expanded(
-                    flex: 1,
-                    child: pw.Text(
-                      formatCurrency((item['unitPrice'] ?? 0.0).toDouble()),
-                      style: pw.TextStyle(fontSize: 8, font: fonts['arabic']),
-                      textAlign: pw.TextAlign.center,
-                    ),
-                  ),
-                ],
+          textDirection: pw.TextDirection.ltr,
+        ),
+      );
+    }
+
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.black, width: 1),
+      columnWidths: {
+        0: const pw.FlexColumnWidth(0.8), // م (Serial)
+        1: const pw.FlexColumnWidth(1.2), // التاريخ (Date)
+        2: const pw.FlexColumnWidth(2.5), // البيان (Description)
+        3: const pw.FlexColumnWidth(1.2), // الدين (Debit)
+        4: const pw.FlexColumnWidth(1.2), // الدائن (Credit)
+        5: const pw.FlexColumnWidth(1.2), // الرصيد (Balance)
+      },
+      children: [
+        // Traditional Header row
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+          children: [
+            _buildHeaderCell('م', fonts['arabicBold']),
+            _buildHeaderCell('التاريخ', fonts['arabicBold']),
+            _buildHeaderCell('البيان', fonts['arabicBold']),
+            _buildHeaderCell('الدين', fonts['arabicBold']),
+            _buildHeaderCell('الدائن', fonts['arabicBold']),
+            _buildHeaderCell('الرصيد', fonts['arabicBold']),
+          ],
+        ),
+        // Opening Balance Row
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.blue50),
+          children: [
+            _buildTableCell(
+              '',
+              fonts['arabic'],
+            ), // No serial for opening balance
+            _buildTableCell(
+              'رصيد سابق',
+              fonts['arabicBold'],
+              isBold: true,
+            ), // for opening balance
+            _buildTableCell(
+              'Opening Balance',
+              fonts['arabicBold'],
+              isBold: true,
+            ),
+            _buildTableCell(
+              openingBalance > 0 ? formatCurrency(openingBalance) : '',
+              fonts['arabicBold'],
+              isCurrency: true,
+              isBold: true,
+            ),
+            _buildTableCell(
+              openingBalance < 0 ? formatCurrency(openingBalance.abs()) : '',
+              fonts['arabicBold'],
+              isCurrency: true,
+              isBold: true,
+            ),
+            _buildTableCell(
+              formatCurrency(openingBalance.abs()),
+              fonts['arabicBold'],
+              isCurrency: true,
+              isBold: true,
+            ),
+          ],
+        ),
+        // Data rows
+        ...transactions.asMap().entries.map((entry) {
+          final index = entry.key;
+          final txWithBalance = entry.value;
+          final tx = txWithBalance.transaction;
+
+          // Build description
+          String description = '';
+          if ((tx.credit ?? 0.0) > 0) {
+            description = tx.description?.isNotEmpty == true
+                ? 'سداد: ${tx.description}'
+                : 'سداد جزئي';
+          } else {
+            description = tx.description ?? 'عملية نقدية';
+          }
+
+          return pw.TableRow(
+            children: [
+              _buildTableCell(
+                '${index + 1}',
+                fonts['arabic'],
+                isCentered: true,
               ),
-            ),
-          ),
-        ],
-      ),
+              _buildTableCell(
+                DateFormat('dd/MM/yyyy').format(tx.date),
+                fonts['arabic'],
+                isCentered: true,
+              ),
+              _buildTableCell(description, fonts['arabic']),
+              _buildTableCell(
+                (tx.debit ?? 0.0) > 0 ? formatCurrency(tx.debit) : '',
+                fonts['arabic'],
+                isCurrency: true,
+              ),
+              _buildTableCell(
+                (tx.credit ?? 0.0) > 0 ? formatCurrency(tx.credit) : '',
+                fonts['arabic'],
+                isCurrency: true,
+              ),
+              _buildTableCell(
+                formatCurrency(txWithBalance.runningBalance.abs()),
+                fonts['arabicBold'],
+                isCurrency: true,
+                isBold: true,
+              ),
+            ],
+          );
+        }),
+      ],
     );
   }
 
   // Footer Section
-  static pw.Widget _buildFooterSection(Map<String, pw.Font?> fonts) {
+  static pw.Widget _buildFooterSection(
+    Map<String, pw.Font?> fonts,
+    pw.Context context,
+  ) {
     return pw.Column(
       children: [
-        pw.Divider(),
-        pw.SizedBox(height: 8),
+        pw.Divider(color: PdfColors.grey300),
+        pw.SizedBox(height: 4),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              '', // Remove branding
+              style: pw.TextStyle(
+                fontSize: 8,
+                color: PdfColors.grey600,
+                font: fonts['arabic'],
+              ),
+              textDirection: pw.TextDirection.ltr,
+            ),
+            pw.Text(
+              'Page ${context.pageNumber}/${context.pagesCount}',
+              style: pw.TextStyle(
+                fontSize: 8,
+                color: PdfColors.grey600,
+                font: fonts['arabic'],
+              ),
+              textDirection: pw.TextDirection.ltr,
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 2),
         pw.Center(
-          child: pw.Column(
-            children: [
-              pw.Text(
-                _branding,
-                style: pw.TextStyle(
-                  fontSize: 12,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.blue800,
-                  font: fonts['arabicBold'],
-                ),
-                textDirection: pw.TextDirection.rtl,
-              ),
-              pw.SizedBox(height: 4),
-              pw.Text(
-                ArabicHelper.reshapedText(
-                  'تم الإنشاء في ${DateFormat('yyyy/MM/dd HH:mm').format(DateTime.now())}',
-                ),
-                style: pw.TextStyle(
-                  fontSize: 10,
-                  color: PdfColors.grey600,
-                  font: fonts['arabic'],
-                ),
-                textDirection: pw.TextDirection.rtl,
-              ),
-            ],
+          child: pw.Text(
+            DateFormat(
+              'yyyy-MM-dd hh:mm a',
+            ).format(DateTime.now()), // Remove Arabic
+            style: pw.TextStyle(
+              fontSize: 8,
+              color: PdfColors.grey500,
+              font: fonts['arabic'],
+            ),
+            textDirection: pw.TextDirection.ltr,
           ),
         ),
       ],
     );
   }
 
-  // Helper methods for table cells
+  // Helper methods
   static pw.Widget _buildHeaderCell(String text, pw.Font? font) {
     return pw.Container(
-      padding: const pw.EdgeInsets.all(8),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      alignment: pw.Alignment.center,
       child: pw.Text(
-        ArabicHelper.reshapedText(text),
+        text, // Use simple text without reshaping to avoid Bidi errors
         style: pw.TextStyle(
+          fontSize: 12,
           fontWeight: pw.FontWeight.bold,
+          color: PdfColors.white,
           font: font,
-          fontFallback: [pw.Font.helvetica()],
         ),
-        textAlign: pw.TextAlign.center,
-        textDirection: pw.TextDirection.rtl,
+        textDirection: pw.TextDirection.rtl, // RTL for Arabic
       ),
     );
   }
 
-  static pw.Widget _buildDataCell(
+  static pw.Widget _buildTableCell(
     String text,
     pw.Font? font, {
+    bool isHeader = false,
     bool isBold = false,
-    PdfColor color = PdfColors.black,
+    bool isCurrency = false,
+    bool isCentered = false,
+    PdfColor? color,
   }) {
+    // Handle Arabic text properly but avoid Bidi issues
+    String displayText = text;
+    pw.TextDirection textDirection = pw.TextDirection.rtl;
+
+    // For currency, use LTR to avoid Bidi issues
+    if (isCurrency) {
+      textDirection = pw.TextDirection.ltr;
+    } else {
+      // For Arabic text, use simple approach without reshaping to avoid Bidi errors
+      textDirection = pw.TextDirection.rtl;
+      // Don't use reshaping to avoid Bidi processing errors
+    }
+
     return pw.Container(
-      padding: const pw.EdgeInsets.all(8),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      alignment: isCentered
+          ? pw.Alignment.center
+          : (isCurrency ? pw.Alignment.centerRight : pw.Alignment.centerRight),
       child: pw.Text(
-        ArabicHelper.reshapedText(text),
+        displayText,
         style: pw.TextStyle(
-          fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
-          font: font,
-          fontFallback: [pw.Font.helvetica()],
-          color: color,
-          fontSize: isBold ? 11 : 10,
+          fontSize: 10,
+          fontWeight: isHeader || isBold
+              ? pw.FontWeight.bold
+              : pw.FontWeight.normal,
+          color: color ?? PdfColors.black,
+          font: font ?? pw.Font.helvetica(),
         ),
-        textAlign: pw.TextAlign.center,
-        textDirection: pw.TextDirection.rtl,
+        textDirection: textDirection,
       ),
     );
   }
 
-  // Get enhanced transactions with product details
-  static Future<List<Map<String, dynamic>>> _getEnhancedTransactions(
-    AppDatabase db,
-    String customerId,
-    DateTime fromDate,
-    DateTime toDate,
-  ) async {
-    final transactions = <Map<String, dynamic>>[];
-    double runningBalance = 0.0;
-
-    try {
-      // Get invoices for the customer in date range
-      final allInvoices = await db.invoiceDao.getInvoicesByDateRange(
-        fromDate,
-        toDate,
-      );
-      final invoices = allInvoices
-          .where((invoice) => invoice.customerId == customerId)
-          .toList();
-
-      // Get payments for the customer in date range
-      final payments = await db.ledgerDao.getTransactionsByDateRange(
-        'Customer',
-        customerId,
-        fromDate,
-        toDate,
-      );
-
-      // Combine all transactions and sort by date
-      final allTransactions = <Map<String, dynamic>>[];
-
-      // Add invoices
-      for (final invoice in invoices) {
-        final items = await _getInvoiceItemsWithProducts(db, invoice.id);
-        allTransactions.add({
-          'date': invoice.date,
-          'type': 'sale',
-          'description':
-              'مبيعات - فاتورة #${invoice.invoiceNumber ?? invoice.id}',
-          'debit': invoice.totalAmount,
-          'credit': 0.0,
-          'items': items,
-          'invoiceId': invoice.id,
-        });
-      }
-
-      // Add payments
-      for (final payment in payments) {
-        allTransactions.add({
-          'date': payment.date,
-          'type': 'payment',
-          'description': 'استلام نقدية - ${payment.description}',
-          'debit': 0.0,
-          'credit': payment.credit,
-          'items': <dynamic>[],
-        });
-      }
-
-      // Sort by date and calculate running balance
-      allTransactions.sort((a, b) => a['date'].compareTo(b['date']));
-
-      for (final transaction in allTransactions) {
-        final debit = transaction['debit'] as double;
-        final credit = transaction['credit'] as double;
-        runningBalance += debit - credit;
-
-        transaction['balance'] = runningBalance;
-        transactions.add(transaction);
-      }
-    } catch (e) {
-      debugPrint('Error getting enhanced transactions: $e');
-    }
-
-    return transactions;
-  }
-
-  // Format currency (public for testing)
   static String formatCurrency(double amount) {
-    if (amount.isNaN) return '0.00 ج.م';
-    final formatted = NumberFormat.currency(
-      locale: 'en_EG',
-      symbol: '',
-      decimalDigits: 2,
-    ).format(amount);
-    return '$formatted ج.م';
-  }
-
-  // Save and print PDF
-  static Future<void> _saveAndPrintPdf(pw.Document pdf, String fileName) async {
-    try {
-      final output = await pdf.save();
-      await Printing.layoutPdf(
-        onLayout: (PdfPageFormat format) async => output,
-        name: fileName,
-      );
-    } catch (e) {
-      debugPrint('Print error: $e');
-      // Fallback: save to file
-      try {
-        final directory = await getApplicationDocumentsDirectory();
-        final filePath = path.join(directory.path, fileName);
-        final file = File(filePath);
-        final output = await pdf.save();
-        await file.writeAsBytes(output);
-        debugPrint('PDF saved to: $filePath');
-      } catch (saveError) {
-        debugPrint('Error saving PDF: $saveError');
-        rethrow;
-      }
-    }
+    // Use simple format without Arabic characters to avoid Bidi issues
+    return '${amount.toStringAsFixed(2)} EGP';
   }
 }

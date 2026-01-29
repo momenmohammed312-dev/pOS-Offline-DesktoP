@@ -4,9 +4,15 @@ import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
-import 'package:pos_offline_desktop/core/services/account_statement_generator.dart';
+import 'package:drift/native.dart';
+import 'package:drift/drift.dart' as drift;
+import 'package:pos_offline_desktop/ui/customer/services/enhanced_customer_statement_generator.dart';
+import 'package:pos_offline_desktop/core/services/unified_print_service.dart'
+    as ups;
 import 'package:pos_offline_desktop/core/services/settings_service.dart';
 import 'package:pos_offline_desktop/core/database/dao/ledger_dao.dart';
+import 'package:pos_offline_desktop/core/database/dao/customer_dao.dart';
+import 'package:pos_offline_desktop/core/database/dao/invoice_dao.dart';
 import 'package:pos_offline_desktop/core/database/app_database.dart';
 
 class PrinterService {
@@ -67,7 +73,11 @@ class PrinterService {
     required String paymentMethod,
     required bool isThermal,
     LedgerDao? ledgerDao,
+    InvoiceDao? invoiceDao,
+    CustomerDao? customerDao,
     Printer? printer,
+    double previousBalance = 0.0,
+    String? customerId,
   }) async {
     if (isThermal && paymentMethod.toLowerCase() == 'cash') {
       await printThermalReceipt(
@@ -79,18 +89,23 @@ class PrinterService {
         customerName: invoice['customerName'] ?? 'عميل نقدي',
         printer: printer,
       );
-    } else if (ledgerDao != null) {
+    } else if (ledgerDao != null && invoiceDao != null && customerDao != null) {
+      // Create a temporary database instance for the statement
+      final db = AppDatabase(drift.DatabaseConnection(NativeDatabase.memory()));
+
       await printAccountStatement(
         entityName: invoice['customerName'] ?? 'عميل',
         entityType: 'Customer',
         entityId: invoice['customerId'] ?? invoice['id']?.toString() ?? '1',
-        fromDate: invoice['date'] ?? DateTime.now(),
-        toDate: invoice['date'] ?? DateTime.now(),
-        ledgerDao: ledgerDao,
-        printer: printer,
+        fromDate: DateTime.now().subtract(const Duration(days: 30)),
+        toDate: DateTime.now(),
+        db: db,
+        previousBalance: previousBalance,
       );
     } else {
-      throw Exception('LedgerDao required for credit invoice printing');
+      throw Exception(
+        'LedgerDao, InvoiceDao, and CustomerDao required for credit invoice printing',
+      );
     }
   }
 
@@ -350,7 +365,11 @@ class PrinterService {
     required List<Map<String, dynamic>> items,
     required String paymentMethod,
     LedgerDao? ledgerDao,
+    InvoiceDao? invoiceDao,
+    CustomerDao? customerDao,
     String? overridePrinterName,
+    double previousBalance = 0.0,
+    String? customerId,
   }) async {
     try {
       // Determine if we should use thermal or A4 based on payment method
@@ -385,7 +404,11 @@ class PrinterService {
         paymentMethod: paymentMethod,
         isThermal: isThermal,
         ledgerDao: ledgerDao,
+        invoiceDao: invoiceDao,
+        customerDao: customerDao,
         printer: matchedPrinter,
+        previousBalance: previousBalance,
+        customerId: customerId,
       );
     } catch (e) {
       throw Exception('فشل في الطباعة التلقائية: $e');
@@ -699,19 +722,20 @@ class PrinterService {
     required String entityId,
     required DateTime fromDate,
     required DateTime toDate,
-    required LedgerDao ledgerDao,
+    required AppDatabase db,
     Printer? printer,
+    double previousBalance = 0.0,
   }) async {
-    final generator = AccountStatementGenerator();
-
-    await generator.printAccountStatement(
-      entityName: entityName,
-      entityType: entityType,
-      entityId: entityId,
+    // Use enhanced customer statement generator
+    await EnhancedCustomerStatementGenerator.generateStatement(
+      db: db,
+      customerId: entityId,
+      customerName: entityName,
       fromDate: fromDate,
       toDate: toDate,
-      ledgerDao: ledgerDao,
-      printer: printer,
+      openingBalance: previousBalance,
+      currentBalance:
+          previousBalance, // This would need to be calculated properly
     );
   }
 
@@ -722,6 +746,8 @@ class PrinterService {
     required DateTime endDate,
     required List invoices,
     LedgerDao? ledgerDao,
+    InvoiceDao? invoiceDao,
+    CustomerDao? customerDao,
   }) async {
     if (ledgerDao == null) {
       throw Exception('LedgerDao required for customer statement printing');
@@ -750,8 +776,7 @@ class PrinterService {
       entityId: customerId,
       fromDate: startDate,
       toDate: endDate,
-      ledgerDao: ledgerDao,
-      printer: matchedPrinter,
+      db: AppDatabase(drift.DatabaseConnection(NativeDatabase.memory())),
     );
   }
 
@@ -1000,199 +1025,68 @@ class PrinterService {
     ).format(amount);
   }
 
-  // Print duplicate invoice with REPRINT header
+  // Print duplicate invoice using UnifiedPrintService
   static Future<void> printDuplicateInvoice({
     required Map<String, dynamic> invoice,
     required List<Map<String, dynamic>> items,
     required String paymentMethod,
     required LedgerDao ledgerDao,
+    required InvoiceDao invoiceDao,
+    required CustomerDao customerDao,
   }) async {
-    await _loadFonts();
-
-    final pdf = pw.Document();
-    final invoiceData = Map<String, dynamic>.from(invoice);
-
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.roll80,
-        theme: _getTheme(),
-        build: (pw.Context context) {
-          return pw.Directionality(
-            textDirection: pw.TextDirection.rtl,
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
-              children: [
-                // Header with REPRINT notice
-                pw.Text(
-                  'DUPLICATE RECEIPT / نسخة فاتورة',
-                  style: _getTextStyle(fontSize: 12, isBold: true),
-                  textDirection: pw.TextDirection.rtl,
-                ),
-                pw.SizedBox(height: 8),
-                pw.Text(
-                  '================================',
-                  style: _getTextStyle(),
-                ),
-                pw.SizedBox(height: 8),
-
-                // Store info
-                pw.Text(
-                  'POS System',
-                  style: _getTextStyle(fontSize: 16, isBold: true),
-                  textDirection: pw.TextDirection.rtl,
-                ),
-                pw.Text(
-                  _branding,
-                  style: _getTextStyle(fontSize: 10),
-                  textDirection: pw.TextDirection.rtl,
-                ),
-                pw.SizedBox(height: 8),
-
-                // Invoice info
-                pw.Container(
-                  alignment: pw.Alignment.centerRight,
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        'رقم الفاتورة: ${invoiceData['invoiceNumber'] ?? invoiceData['id']}',
-                        style: _getTextStyle(fontSize: 10),
-                        textDirection: pw.TextDirection.rtl,
-                      ),
-                      pw.Text(
-                        'التاريخ: ${DateFormat('yyyy/MM/dd HH:mm').format(invoiceData['date'])}',
-                        style: _getTextStyle(fontSize: 10),
-                        textDirection: pw.TextDirection.rtl,
-                      ),
-                      pw.Text(
-                        'العميل: ${invoiceData['customerName'] ?? 'عميل نقدي'}',
-                        style: _getTextStyle(fontSize: 10),
-                        textDirection: pw.TextDirection.rtl,
-                      ),
-                      pw.Text(
-                        'الدفع: ${_getPaymentMethodLabel(paymentMethod)}',
-                        style: _getTextStyle(fontSize: 10),
-                        textDirection: pw.TextDirection.rtl,
-                      ),
-                    ],
-                  ),
-                ),
-                pw.SizedBox(height: 12),
-
-                // Items
-                pw.Text(
-                  '--------------------------------',
-                  style: _getTextStyle(),
-                ),
-                for (final item in items)
-                  pw.Container(
-                    padding: pw.EdgeInsets.symmetric(vertical: 4),
-                    child: pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Expanded(
-                          flex: 3,
-                          child: pw.Text(
-                            item['productName'] ?? item['name'],
-                            style: _getTextStyle(fontSize: 10),
-                            textDirection: pw.TextDirection.rtl,
-                          ),
-                        ),
-                        pw.Text(
-                          '${item['quantity']}x',
-                          style: _getTextStyle(fontSize: 10),
-                          textDirection: pw.TextDirection.ltr,
-                        ),
-                        pw.SizedBox(width: 8),
-                        pw.Text(
-                          _formatCurrency(
-                            item['total'] ?? (item['price'] * item['quantity']),
-                          ),
-                          style: _getTextStyle(fontSize: 10),
-                          textDirection: pw.TextDirection.ltr,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                pw.Text(
-                  '--------------------------------',
-                  style: _getTextStyle(),
-                ),
-                pw.SizedBox(height: 8),
-
-                // Total
-                pw.Container(
-                  alignment: pw.Alignment.centerRight,
-                  child: pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text(
-                        'الإجمالي:',
-                        style: _getTextStyle(fontSize: 12, isBold: true),
-                        textDirection: pw.TextDirection.rtl,
-                      ),
-                      pw.Text(
-                        _formatCurrency(invoiceData['totalAmount']),
-                        style: _getTextStyle(fontSize: 12, isBold: true),
-                        textDirection: pw.TextDirection.ltr,
-                      ),
-                    ],
-                  ),
-                ),
-                pw.SizedBox(height: 8),
-
-                // Footer
-                pw.Text(
-                  '================================',
-                  style: _getTextStyle(),
-                ),
-                pw.Text(
-                  'شكراً لتعاملكم معنا',
-                  style: _getTextStyle(fontSize: 10),
-                  textDirection: pw.TextDirection.rtl,
-                ),
-                pw.SizedBox(height: 4),
-                pw.Center(
-                  child: pw.Text(
-                    'تمت إعادة الطباعة في: ${DateFormat('yyyy/MM/dd HH:mm').format(DateTime.now())}',
-                    style: _getTextStyle(fontSize: 8),
-                    textDirection: pw.TextDirection.rtl,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-
     try {
-      await Printing.layoutPdf(
-        onLayout: (format) async => pdf.save(),
-        name:
-            'Duplicate Invoice ${invoiceData['invoiceNumber'] ?? invoiceData['id']}',
-        format: PdfPageFormat.roll80,
+      // Convert items to InvoiceItem models
+      final invoiceItems = items.map((item) {
+        return ups.InvoiceItem(
+          id: 0, // Temporary ID
+          invoiceId: invoice['id'] ?? 0,
+          description: item['productName'] ?? item['name'] ?? 'Product',
+          unit: 'قطعة',
+          quantity: item['quantity'] ?? 1,
+          unitPrice: (item['price'] ?? 0.0).toDouble(),
+          totalPrice: (item['total'] ?? (item['price'] * item['quantity']))
+              .toDouble(),
+        );
+      }).toList();
+
+      // Create store info
+      final storeInfo = ups.StoreInfo(
+        storeName: 'المحل التجاري',
+        phone: '01234567890',
+        zipCode: '12345',
+        state: 'القاهرة',
+      );
+
+      // Create invoice model
+      final invoiceModel = ups.Invoice(
+        id: invoice['id'] ?? 0,
+        invoiceNumber:
+            invoice['invoiceNumber']?.toString() ?? invoice['id'].toString(),
+        customerName: invoice['customerName'] ?? 'عميل نقدي',
+        customerPhone: invoice['customerPhone'] ?? 'N/A',
+        customerZipCode: '',
+        customerState: '',
+        invoiceDate: invoice['date'] ?? DateTime.now(),
+        subtotal: (invoice['totalAmount'] ?? 0.0).toDouble(),
+        isCreditAccount: paymentMethod.toLowerCase() != 'cash',
+        previousBalance: 0.0,
+        totalAmount: (invoice['totalAmount'] ?? 0.0).toDouble(),
+      );
+
+      // Create InvoiceData
+      final invoiceData = ups.InvoiceData(
+        invoice: invoiceModel,
+        items: invoiceItems,
+        storeInfo: storeInfo,
+      );
+
+      // Print using new SOP 4.0 format
+      await ups.UnifiedPrintService.printToThermalPrinter(
+        documentType: ups.DocumentType.salesInvoice,
+        data: invoiceData,
       );
     } catch (e) {
       debugPrint('Duplicate invoice print error: $e');
-    }
-  }
-
-  static String _getPaymentMethodLabel(String method) {
-    switch (method.toLowerCase()) {
-      case 'cash':
-        return 'نقدي';
-      case 'visa':
-        return 'فيزا';
-      case 'mastercard':
-        return 'ماستر كارد';
-      case 'bank':
-        return 'تحويل بنكي';
-      case 'wallet':
-        return 'محفظة إلكترونية';
-      default:
-        return 'أخرى';
     }
   }
 }

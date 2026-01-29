@@ -5,7 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pos_offline_desktop/core/database/app_database.dart';
-import 'package:pos_offline_desktop/core/services/printer_service.dart';
+import 'package:pos_offline_desktop/core/services/unified_print_service.dart'
+    as ups;
 import 'package:pos_offline_desktop/l10n/app_localizations.dart';
 
 class AddInvoiceDialog extends StatefulHookConsumerWidget {
@@ -360,14 +361,54 @@ class _AddInvoiceDialogState extends ConsumerState<AddInvoiceDialog> {
           )
           .toList();
 
-      // Use autoPrintInvoice so saved printer preferences are honored
-      await PrinterService.autoPrintInvoice(
-        invoice: invoiceData,
-        items: itemsData,
-        paymentMethod: _selectedInvoiceType == 'cash'
-            ? _selectedPaymentMethod
-            : 'credit',
-        ledgerDao: db.ledgerDao,
+      // Print using new SOP 4.0 format
+      final itemsWithProducts = await db.invoiceDao
+          .getItemsWithProductsByInvoice(invoiceId);
+
+      final invoiceItems = itemsWithProducts.map((itemWithProduct) {
+        final item = itemWithProduct.$1;
+        final product = itemWithProduct.$2;
+        return ups.InvoiceItem(
+          id: item.id,
+          invoiceId: item.invoiceId,
+          description: product?.name ?? 'Product ${item.productId}',
+          unit: 'قطعة',
+          quantity: item.quantity,
+          unitPrice: item.price,
+          totalPrice: item.quantity * item.price,
+        );
+      }).toList();
+
+      final storeInfo = ups.StoreInfo(
+        storeName: 'المحل التجاري',
+        phone: '01234567890',
+        zipCode: '12345',
+        state: 'القاهرة',
+      );
+
+      final invoiceModel = ups.Invoice(
+        id: invoiceId,
+        invoiceNumber: 'INV$invoiceId',
+        customerName: customerName,
+        customerPhone: 'N/A',
+        customerZipCode: '',
+        customerState: '',
+        invoiceDate: DateTime.now(),
+        subtotal: _totalAmount,
+        isCreditAccount: _selectedInvoiceType == 'credit',
+        previousBalance: 0.0,
+        totalAmount: _totalAmount,
+      );
+
+      final unifiedInvoiceData = ups.InvoiceData(
+        invoice: invoiceModel,
+        items: invoiceItems,
+        storeInfo: storeInfo,
+      );
+
+      await ups.UnifiedPrintService.printToThermalPrinter(
+        documentType: ups.DocumentType.salesInvoice,
+        data: unifiedInvoiceData,
       );
 
       if (mounted) {

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:pos_offline_desktop/core/database/app_database.dart';
 import 'package:pos_offline_desktop/ui/customer/services/enhanced_customer_statement_generator.dart';
-import 'package:drift/native.dart';
-import 'package:drift/drift.dart' as drift;
 import 'package:intl/intl.dart';
 
 class EnhancedCustomerStatementExample extends StatefulWidget {
-  const EnhancedCustomerStatementExample({super.key});
+  final AppDatabase db;
+
+  const EnhancedCustomerStatementExample({super.key, required this.db});
 
   @override
   State<EnhancedCustomerStatementExample> createState() =>
@@ -15,8 +15,6 @@ class EnhancedCustomerStatementExample extends StatefulWidget {
 
 class _EnhancedCustomerStatementExampleState
     extends State<EnhancedCustomerStatementExample> {
-  late final AppDatabase _db;
-
   DateTime? _fromDate;
   DateTime? _toDate;
   bool _isLoading = false;
@@ -26,7 +24,6 @@ class _EnhancedCustomerStatementExampleState
   @override
   void initState() {
     super.initState();
-    _db = AppDatabase(drift.DatabaseConnection(NativeDatabase.memory()));
     _loadCustomers();
     _setDefaultDateRange();
   }
@@ -41,7 +38,7 @@ class _EnhancedCustomerStatementExampleState
 
   Future<void> _loadCustomers() async {
     try {
-      final customers = await _db.customerDao.getAllCustomers();
+      final customers = await widget.db.customerDao.getAllCustomers();
       setState(() {
         _customers = customers
             .map(
@@ -68,25 +65,177 @@ class _EnhancedCustomerStatementExampleState
     setState(() => _isLoading = true);
 
     try {
-      await EnhancedCustomerStatementGenerator.generateStatement(
-        db: _db,
-        customerId: _selectedCustomerId!,
-        customerName: _customers.firstWhere(
-          (c) => c['id'] == _selectedCustomerId,
-        )['name'],
-        fromDate: _fromDate!,
-        toDate: _toDate!,
-        openingBalance: 0.0, // Simplified for example
-        currentBalance: await _db.ledgerDao.getRunningBalance(
-          'Customer',
-          _selectedCustomerId!,
-        ),
+      debugPrint('=== STARTING STATEMENT GENERATION ===');
+      debugPrint('Customer ID: $_selectedCustomerId');
+
+      // Check if customer exists first
+      final customer = await widget.db.customerDao.getCustomerById(
+        _selectedCustomerId!,
       );
+      if (customer == null) {
+        debugPrint('ERROR: Customer not found: $_selectedCustomerId');
+        _showErrorDialog('Customer not found: $_selectedCustomerId');
+        return;
+      }
+
+      debugPrint('Customer found: ${customer.name}');
+      debugPrint('Customer ID: ${customer.id}');
+      debugPrint('Customer ID type: ${customer.id.runtimeType}');
+      debugPrint('Customer ID toString: ${customer.id.toString()}');
+      debugPrint('Selected Customer ID: $_selectedCustomerId}');
+      debugPrint(
+        'Selected Customer ID type: ${_selectedCustomerId.runtimeType}',
+      );
+
+      // Check if ID mismatch
+      if (customer.id.toString() != _selectedCustomerId) {
+        debugPrint('WARNING: Customer ID mismatch!');
+        debugPrint('Customer DB ID: ${customer.id.toString()}');
+        debugPrint('Selected Customer ID: $_selectedCustomerId');
+        debugPrint('Using customer DB ID for transactions...');
+        _selectedCustomerId = customer.id.toString();
+      }
+
+      debugPrint('FINAL Customer ID being used: $_selectedCustomerId');
+      debugPrint('=== EXAMPLE DEBUG: Using correct UUID for transactions ===');
+
+      // Test with very wide date range to get all transactions
+      final wideFromDate = DateTime(2020, 1, 1); // Very old date
+      final wideToDate = DateTime.now(); // Until today
+
+      debugPrint('Using wide date range: $wideFromDate to $wideToDate');
+
+      // Try to get all transactions without date filter first
+      try {
+        debugPrint('EXAMPLE: Getting all transactions...');
+        debugPrint('EXAMPLE: Using customer ID: ${_selectedCustomerId!}');
+        debugPrint(
+          'EXAMPLE: Using customer ID type: ${_selectedCustomerId.runtimeType}',
+        );
+
+        final allTransactions = await widget.db.ledgerDao
+            .getTransactionsByEntity('Customer', _selectedCustomerId!);
+        debugPrint(
+          'EXAMPLE: SUCCESS: Found ${allTransactions.length} total transactions',
+        );
+
+        // Show first 5 transactions for debugging
+        for (int i = 0; i < allTransactions.length && i < 5; i++) {
+          final tx = allTransactions[i];
+          debugPrint(
+            'EXAMPLE: Transaction $i: ${tx.description} - Date: ${tx.date} - Debit: ${tx.debit}, Credit: ${tx.credit}',
+          );
+        }
+
+        // Check if any transactions exist
+        if (allTransactions.isEmpty) {
+          debugPrint(
+            'EXAMPLE: WARNING: No transactions found for this customer at all!',
+          );
+          debugPrint(
+            'EXAMPLE: This means invoices are not creating ledger entries for customers!',
+          );
+          debugPrint(
+            'EXAMPLE: Or the customer ID in invoices is different from the customer ID used here!',
+          );
+
+          // Let's try to find transactions for different customer IDs
+          debugPrint(
+            'EXAMPLE: Trying to find transactions for any customer...',
+          );
+          final allCustomerTransactions = await widget.db.ledgerDao
+              .getAllTransactions();
+          debugPrint(
+            'EXAMPLE: Found ${allCustomerTransactions.length} total ledger transactions',
+          );
+
+          // Show first 3 transactions to see the customer IDs used
+          for (int i = 0; i < allCustomerTransactions.length && i < 3; i++) {
+            final tx = allCustomerTransactions[i];
+            debugPrint(
+              'EXAMPLE: Ledger TX $i: Entity: ${tx.entityType}, Ref ID: ${tx.refId}, Description: ${tx.description}',
+            );
+          }
+
+          // Check if there are any Customer transactions at all
+          final customerTransactions = allCustomerTransactions
+              .where((tx) => tx.entityType == 'Customer')
+              .toList();
+          debugPrint(
+            'EXAMPLE: Found ${customerTransactions.length} Customer transactions in total',
+          );
+
+          // Show unique customer IDs in ledger
+          final uniqueCustomerIds = customerTransactions
+              .map((tx) => tx.refId)
+              .toSet()
+              .toList();
+          debugPrint(
+            'EXAMPLE: Unique Customer IDs in ledger: $uniqueCustomerIds',
+          );
+        } else {
+          debugPrint(
+            'EXAMPLE: INFO: Customer has transactions, checking date range...',
+          );
+
+          // Verify transaction data integrity
+          debugPrint('EXAMPLE: === TRANSACTION DATA VERIFICATION ===');
+          for (int i = 0; i < allTransactions.length && i < 3; i++) {
+            final tx = allTransactions[i];
+            debugPrint(
+              'EXAMPLE: TX $i - ID: ${tx.id}, Entity: ${tx.entityType}, Ref ID: ${tx.refId}',
+            );
+            debugPrint(
+              'EXAMPLE: TX $i - Date: ${tx.date}, Description: ${tx.description}',
+            );
+            debugPrint(
+              'EXAMPLE: TX $i - Debit: ${tx.debit}, Credit: ${tx.credit}',
+            );
+            debugPrint('EXAMPLE: TX $i - Created At: ${tx.createdAt}');
+          }
+        }
+      } catch (e) {
+        debugPrint('EXAMPLE: ERROR getting transactions: $e');
+      }
+
+      // Get opening balance from the beginning of time
+      debugPrint('Getting opening balance...');
+      final openingBalance = await widget.db.ledgerDao.getRunningBalance(
+        'Customer',
+        _selectedCustomerId!,
+        upToDate: wideFromDate.subtract(const Duration(days: 1)),
+      );
+
+      debugPrint('Opening Balance: $openingBalance');
+
+      // Get current balance
+      debugPrint('Getting current balance...');
+      final currentBalance = await widget.db.ledgerDao.getRunningBalance(
+        'Customer',
+        _selectedCustomerId!,
+        upToDate: wideToDate,
+      );
+
+      debugPrint('Current Balance: $currentBalance');
+
+      debugPrint('Generating PDF statement...');
+      await EnhancedCustomerStatementGenerator.generateStatement(
+        db: widget.db,
+        customerId: _selectedCustomerId!,
+        customerName: customer.name,
+        fromDate: wideFromDate, // Use wide date range
+        toDate: wideToDate, // Use wide date range
+        openingBalance: openingBalance,
+        currentBalance: currentBalance,
+      );
+
+      debugPrint('=== STATEMENT GENERATION COMPLETED ===');
 
       if (mounted) {
         _showSuccessDialog('Customer statement generated successfully!');
       }
     } catch (e) {
+      debugPrint('Error generating statement: $e');
       _showErrorDialog('Failed to generate statement: $e');
     } finally {
       if (mounted) {

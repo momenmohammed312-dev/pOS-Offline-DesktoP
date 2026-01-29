@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pos_offline_desktop/core/database/app_database.dart';
-import 'package:pos_offline_desktop/core/services/printer_service.dart';
+import 'package:pos_offline_desktop/core/services/unified_print_service.dart'
+    as ups;
 import 'package:pos_offline_desktop/core/services/export_service.dart';
 
 /// صفحة تفاصيل الفاتورة البسيطة - Simple Invoice Details Page
@@ -371,43 +372,74 @@ class _InvoiceDetailsPageState extends State<InvoiceDetailsPage> {
 
   Future<void> _printInvoice() async {
     try {
-      if (widget.customer != null) {
-        await PrinterService.printCustomerStatement(
-          customerId: widget.customer!.id,
-          customerName: widget.customer!.name,
-          startDate: widget.invoice.date,
-          endDate: widget.invoice.date,
-          invoices: [widget.invoice],
-          ledgerDao: widget.db.ledgerDao,
+      // Convert to InvoiceItem models
+      final invoiceItems = _itemsWithProducts.map((itemWithProduct) {
+        final item = itemWithProduct.$1;
+        final product = itemWithProduct.$2;
+        return ups.InvoiceItem(
+          id: item.id,
+          invoiceId: item.invoiceId,
+          description: product?.name ?? 'Product ${item.productId}',
+          unit: 'قطعة',
+          quantity: item.quantity,
+          unitPrice: item.price,
+          totalPrice: item.quantity * item.price,
         );
-      } else {
-        // Use autoPrintInvoice to honor thermal/A4 preference
-        // Convert invoice items to maps for printing with proper product names
-        final itemsMaps = _itemsWithProducts.map((itemWithProduct) {
-          final item = itemWithProduct.$1;
-          final product = itemWithProduct.$2;
-          return {
-            'productName': product?.name ?? 'Product ${item.productId}',
-            'name': product?.name ?? 'Product ${item.productId}',
-            'quantity': item.quantity,
-            'price': item.price,
-            'total': item.quantity * item.price,
-          };
-        }).toList();
+      }).toList();
 
-        await PrinterService.autoPrintInvoice(
-          invoice: {
-            'id': widget.invoice.id,
-            'customerName': widget.invoice.customerName,
-            'date': widget.invoice.date,
-            'totalAmount': widget.invoice.totalAmount,
-            'paymentMethod': widget.invoice.paymentMethod,
-          },
-          items: itemsMaps,
-          paymentMethod: widget.invoice.paymentMethod ?? 'cash',
-          ledgerDao: widget.db.ledgerDao,
+      // Create store info
+      final storeInfo = ups.StoreInfo(
+        storeName: 'المحل التجاري',
+        phone: '01234567890',
+        zipCode: '12345',
+        state: 'القاهرة',
+      );
+
+      // Get customer's actual previous balance
+      double previousBalance = 0.0;
+      if (widget.customer != null && widget.customer!.id != 'cash_customer') {
+        previousBalance = await widget.db.ledgerDao.getCustomerBalance(
+          widget.customer!.id,
         );
       }
+
+      // Create invoice model
+      final invoiceModel = ups.Invoice(
+        id: widget.invoice.id,
+        invoiceNumber:
+            widget.invoice.invoiceNumber ?? 'INV${widget.invoice.id}',
+        customerName: widget.invoice.customerName ?? 'عميل غير محدد',
+        customerPhone:
+            widget.invoice.customerContact ??
+            widget.customer?.phone ??
+            'غير متاح',
+        customerZipCode: '',
+        customerState: '',
+        invoiceDate: widget.invoice.date,
+        subtotal: widget.invoice.totalAmount,
+        isCreditAccount: widget.invoice.status != 'paid',
+        previousBalance: previousBalance,
+        totalAmount: widget.invoice.totalAmount,
+      );
+
+      // Create InvoiceData
+      final invoiceData = ups.InvoiceData(
+        invoice: invoiceModel,
+        items: invoiceItems,
+        storeInfo: storeInfo,
+      );
+
+      // Print using new SOP 4.0 format
+      // Always pass paidAmount (even if 0) to show correct payment status
+      final Map<String, dynamic> additionalData = {
+        'paidAmount': widget.invoice.paidAmount,
+      };
+
+      await ups.UnifiedPrintService.printToThermalPrinter(
+        documentType: ups.DocumentType.salesInvoice,
+        data: invoiceData,
+        additionalData: additionalData,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

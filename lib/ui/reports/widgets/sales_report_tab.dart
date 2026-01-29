@@ -4,6 +4,8 @@ import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
 import 'package:pos_offline_desktop/core/database/app_database.dart';
 import 'package:pos_offline_desktop/core/services/export_service.dart';
+import 'package:pos_offline_desktop/core/services/unified_print_service.dart'
+    as ups;
 import 'package:pos_offline_desktop/core/services/printer_service.dart';
 import 'package:pos_offline_desktop/l10n/l10n.dart';
 
@@ -173,7 +175,7 @@ class _SalesReportTabState extends State<SalesReportTab> {
     }
   }
 
-  // Thermal receipt printing
+  // Thermal receipt printing using UnifiedPrintService
   Future<void> _printThermalReceipt() async {
     try {
       final messengerContext = context; // Capture context before async
@@ -184,16 +186,50 @@ class _SalesReportTabState extends State<SalesReportTab> {
         (sum, inv) => sum + inv.totalAmount,
       );
 
-      // Print using printer service
-      await PrinterService.printThermalReceipt(
-        receiptNumber: 'SALES-${DateTime.now().millisecondsSinceEpoch}',
-        date: DateTime.now(),
+      // Create sales report data for UnifiedPrintService
+      final reportItems = [
+        ups.InvoiceItem(
+          id: 0,
+          invoiceId: 0,
+          description: 'ملخص تقرير المبيعات',
+          unit: 'تقرير',
+          quantity: 1,
+          unitPrice: grandTotal,
+          totalPrice: grandTotal,
+        ),
+      ];
+
+      final storeInfo = ups.StoreInfo(
+        storeName: 'المحل التجاري',
+        phone: '01234567890',
+        zipCode: '12345',
+        state: 'القاهرة',
+      );
+
+      final reportInvoice = ups.Invoice(
+        id: 0,
+        invoiceNumber: 'SALES-${DateTime.now().millisecondsSinceEpoch}',
         customerName: 'تقارير المبيعات',
-        items: [
-          {'name': 'Sales Report Summary', 'quantity': 1, 'price': grandTotal},
-        ],
+        customerPhone: '',
+        customerZipCode: '',
+        customerState: '',
+        invoiceDate: DateTime.now(),
+        subtotal: grandTotal,
+        isCreditAccount: false,
+        previousBalance: 0.0,
         totalAmount: grandTotal,
-        paymentMethod: 'cash',
+      );
+
+      final invoiceData = ups.InvoiceData(
+        invoice: reportInvoice,
+        items: reportItems,
+        storeInfo: storeInfo,
+      );
+
+      // Print using new SOP 4.0 format
+      await ups.UnifiedPrintService.printToThermalPrinter(
+        documentType: ups.DocumentType.salesInvoice,
+        data: invoiceData,
       );
 
       if (mounted && messengerContext.mounted) {
@@ -242,6 +278,8 @@ class _SalesReportTabState extends State<SalesReportTab> {
         items: itemsMaps,
         paymentMethod: invoice.paymentMethod ?? 'cash',
         ledgerDao: widget.db.ledgerDao,
+        invoiceDao: widget.db.invoiceDao,
+        customerDao: widget.db.customerDao,
       );
 
       if (mounted) {

@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pos_offline_desktop/core/provider/app_database_provider.dart';
+import 'package:pos_offline_desktop/core/database/app_database.dart';
+import 'package:pos_offline_desktop/core/database/dao/enhanced_purchase_dao.dart';
 import 'package:pos_offline_desktop/ui/invoice/widgets/enhanced_new_invoice_page.dart';
+import 'package:pos_offline_desktop/ui/purchase/widgets/enhanced_purchase_invoice_page.dart';
 import 'package:pos_offline_desktop/ui/customer/widgets/customer_dashboard.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
@@ -170,6 +173,203 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                 Theme.of(context).colorScheme.primary,
                               ),
                             ),
+                            const Gap(16),
+                            Expanded(
+                              child: StreamBuilder<double>(
+                                stream: db.supplierDao
+                                    .watchTotalSuppliersDues(),
+                                builder: (context, snapshot) {
+                                  final totalDues = snapshot.data ?? 0.0;
+                                  return _buildMetricCard(
+                                    'مستحقات الموردين',
+                                    '${totalDues.toStringAsFixed(2)} ج.م',
+                                    Icons.account_balance,
+                                    Colors.orange,
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const Gap(24),
+
+            // Purchase Statistics Section
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'إحصائيات المشتريات',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            // Refresh purchase statistics
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('تم تحديث إحصائيات المشتريات'),
+                                backgroundColor: Colors.purple,
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.refresh),
+                          tooltip: 'تحديث إحصائيات المشتريات',
+                        ),
+                      ],
+                    ),
+                    const Gap(16),
+                    FutureBuilder<PurchaseStats>(
+                      future: _getPurchaseStats(db),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return Center(child: CircularProgressIndicator());
+                        }
+
+                        final stats = snapshot.data!;
+
+                        return Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    'إجمالي المشتريات',
+                                    '${stats.totalPurchases.toStringAsFixed(2)} ج.م',
+                                    Icons.shopping_cart,
+                                    Colors.purple,
+                                  ),
+                                ),
+                                const Gap(16),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    'مشتريات آجلة',
+                                    '${stats.creditPurchases.toStringAsFixed(2)} ج.م',
+                                    Icons.credit_card,
+                                    Colors.orange,
+                                  ),
+                                ),
+                                const Gap(16),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    'مشتريات نقدية',
+                                    '${stats.cashPurchases.toStringAsFixed(2)} ج.م',
+                                    Icons.attach_money,
+                                    Colors.green,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Gap(16),
+                            // Top Suppliers by Balance
+                            FutureBuilder<List<EnhancedSupplier>>(
+                              future: _getTopSuppliers(db),
+                              builder: (context, snapshot) {
+                                if (!snapshot.hasData ||
+                                    snapshot.data!.isEmpty) {
+                                  return SizedBox.shrink();
+                                }
+
+                                final suppliers = snapshot.data!;
+
+                                return Container(
+                                  padding: EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceContainer,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'أعلى الموردين (بالرصيد)',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      const Gap(12),
+                                      ...suppliers
+                                          .take(3)
+                                          .map(
+                                            (supplier) => Padding(
+                                              padding: EdgeInsets.only(
+                                                bottom: 8,
+                                              ),
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      supplier.businessName,
+                                                      style: TextStyle(
+                                                        color: Theme.of(
+                                                          context,
+                                                        ).colorScheme.onSurface,
+                                                        fontSize: 14,
+                                                      ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    '${supplier.currentBalance.toStringAsFixed(2)} ج.م',
+                                                    style: TextStyle(
+                                                      color:
+                                                          supplier.currentBalance >
+                                                              0
+                                                          ? Colors.red
+                                                          : Colors.green,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                           ],
                         );
                       },
@@ -205,11 +405,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 const Gap(16),
                 Expanded(
                   child: _buildQuickActionCard(
-                    'الفواتير والمدفوعات',
-                    'عرض وإدارة الفواتير',
-                    Icons.receipt_long,
-                    Colors.blue,
-                    () => Navigator.of(context).pushNamed('/invoice'),
+                    'فاتورة مشتريات',
+                    'إنشاء فاتورة مشتريات جديدة',
+                    Icons.shopping_cart,
+                    Colors.orange,
+                    () => _createNewPurchaseInvoice(),
                   ),
                 ),
               ],
@@ -421,6 +621,32 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     }
   }
 
+  Future<void> _createNewPurchaseInvoice() async {
+    final db = ref.read(appDatabaseProvider);
+    final isOpen = await db.dayDao.isDayOpen();
+    if (!isOpen) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('برجاء فتح اليوم أولاً'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Navigate to enhanced purchase invoice page
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => EnhancedPurchaseInvoicePage(db: db),
+        ),
+      );
+    }
+  }
+
   void _navigateToAddProduct() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -553,4 +779,55 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       ),
     );
   }
+
+  // Purchase statistics methods
+  Future<PurchaseStats> _getPurchaseStats(AppDatabase db) async {
+    final purchaseDao = EnhancedPurchaseDao(db);
+
+    try {
+      final totalPurchases = await purchaseDao.getTotalPurchasesByDateRange(
+        DateTime.now().subtract(Duration(days: 30)),
+        DateTime.now(),
+      );
+
+      final creditPurchases = await purchaseDao.getTotalCreditPurchases();
+      final cashPurchases = await purchaseDao.getTotalCashPurchases();
+
+      return PurchaseStats(
+        totalPurchases: totalPurchases,
+        creditPurchases: creditPurchases,
+        cashPurchases: cashPurchases,
+      );
+    } catch (e) {
+      // Return default values if there's an error
+      return PurchaseStats(
+        totalPurchases: 0.0,
+        creditPurchases: 0.0,
+        cashPurchases: 0.0,
+      );
+    }
+  }
+
+  Future<List<EnhancedSupplier>> _getTopSuppliers(AppDatabase db) async {
+    final purchaseDao = EnhancedPurchaseDao(db);
+
+    try {
+      return await purchaseDao.getTopSuppliersByBalance(5);
+    } catch (e) {
+      return [];
+    }
+  }
+}
+
+// Purchase statistics data class
+class PurchaseStats {
+  final double totalPurchases;
+  final double creditPurchases;
+  final double cashPurchases;
+
+  PurchaseStats({
+    required this.totalPurchases,
+    required this.creditPurchases,
+    required this.cashPurchases,
+  });
 }

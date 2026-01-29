@@ -4,7 +4,8 @@ import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pos_offline_desktop/core/database/app_database.dart';
-import 'package:pos_offline_desktop/core/services/printer_service.dart';
+import 'package:pos_offline_desktop/core/services/unified_print_service.dart'
+    as ups;
 
 enum InvoiceType { cash, credit }
 
@@ -410,26 +411,74 @@ class _EnhancedInvoicePageState extends ConsumerState<EnhancedInvoicePage> {
 
   Future<void> _printThermalReceipt(int invoiceId) async {
     try {
-      final items = _selectedEntries
-          .map(
-            (entry) => {
-              'productName': entry.product.name,
-              'quantity': entry.quantity,
-              'price': entry.unitPrice,
-              'total': entry.lineTotal,
-            },
-          )
-          .toList();
+      // Get invoice items with product details
+      final itemsWithProducts = await widget.db.invoiceDao
+          .getItemsWithProductsByInvoice(invoiceId);
 
-      await PrinterService.printInvoice(
-        invoice: {
-          'id': invoiceId,
-          'totalAmount': _grandTotal,
-          'paymentMethod': _selectedPaymentMethod,
-        },
-        items: items,
-        paymentMethod: _selectedPaymentMethod,
-        isThermal: true,
+      // Convert to InvoiceItem models
+      final invoiceItems = itemsWithProducts.map((itemWithProduct) {
+        final item = itemWithProduct.$1;
+        final product = itemWithProduct.$2;
+        return ups.InvoiceItem(
+          id: item.id,
+          invoiceId: item.invoiceId,
+          description: product?.name ?? 'Product ${item.productId}',
+          unit: 'قطعة',
+          quantity: item.quantity,
+          unitPrice: item.price,
+          totalPrice: item.quantity * item.price,
+        );
+      }).toList();
+
+      // Create store info
+      final storeInfo = ups.StoreInfo(
+        storeName: 'المحل التجاري',
+        phone: '01234567890',
+        zipCode: '12345',
+        state: 'القاهرة',
+      );
+
+      // Get customer's actual previous balance
+      double previousBalance = 0.0;
+      if (_selectedCustomer != null &&
+          _selectedCustomer!.id != 'cash_customer') {
+        previousBalance = await widget.db.ledgerDao.getCustomerBalance(
+          _selectedCustomer!.id,
+        );
+      }
+
+      // Create invoice model
+      final invoiceModel = ups.Invoice(
+        id: invoiceId,
+        invoiceNumber: 'INV$invoiceId',
+        customerName: _selectedCustomer?.name ?? 'عميل غير محدد',
+        customerPhone: _selectedCustomer?.phone ?? 'N/A',
+        customerZipCode: '',
+        customerState: '',
+        invoiceDate: DateTime.now(),
+        subtotal: _grandTotal,
+        isCreditAccount: _selectedInvoiceType == InvoiceType.credit,
+        previousBalance: previousBalance,
+        totalAmount: _grandTotal,
+      );
+
+      // Create InvoiceData
+      final invoiceData = ups.InvoiceData(
+        invoice: invoiceModel,
+        items: invoiceItems,
+        storeInfo: storeInfo,
+      );
+
+      // Print using new SOP 4.0 format
+      // Only pass paidAmount if customer has actually paid something
+      final Map<String, dynamic>? additionalData = (_paidAmount > 0)
+          ? {'paidAmount': _paidAmount}
+          : null;
+
+      await ups.UnifiedPrintService.printToThermalPrinter(
+        documentType: ups.DocumentType.salesInvoice,
+        data: invoiceData,
+        additionalData: additionalData,
       );
     } catch (e) {
       if (mounted) {
@@ -442,25 +491,74 @@ class _EnhancedInvoicePageState extends ConsumerState<EnhancedInvoicePage> {
 
   Future<void> _printA4Invoice(int invoiceId) async {
     try {
-      await PrinterService.printInvoice(
-        invoice: {
-          'id': invoiceId,
-          'customerName': _selectedCustomer?.name ?? '',
-          'totalAmount': _grandTotal,
-          'paymentMethod': _selectedPaymentMethod,
-        },
-        items: _selectedEntries
-            .map(
-              (entry) => {
-                'productName': entry.product.name,
-                'quantity': entry.quantity,
-                'price': entry.unitPrice,
-                'total': entry.lineTotal,
-              },
-            )
-            .toList(),
-        paymentMethod: _selectedPaymentMethod,
-        isThermal: false,
+      // Get invoice items with product details
+      final itemsWithProducts = await widget.db.invoiceDao
+          .getItemsWithProductsByInvoice(invoiceId);
+
+      // Convert to InvoiceItem models
+      final invoiceItems = itemsWithProducts.map((itemWithProduct) {
+        final item = itemWithProduct.$1;
+        final product = itemWithProduct.$2;
+        return ups.InvoiceItem(
+          id: item.id,
+          invoiceId: item.invoiceId,
+          description: product?.name ?? 'Product ${item.productId}',
+          unit: 'قطعة',
+          quantity: item.quantity,
+          unitPrice: item.price,
+          totalPrice: item.quantity * item.price,
+        );
+      }).toList();
+
+      // Create store info
+      final storeInfo = ups.StoreInfo(
+        storeName: 'المحل التجاري',
+        phone: '01234567890',
+        zipCode: '12345',
+        state: 'القاهرة',
+      );
+
+      // Get customer's actual previous balance
+      double previousBalance = 0.0;
+      if (_selectedCustomer != null &&
+          _selectedCustomer!.id != 'cash_customer') {
+        previousBalance = await widget.db.ledgerDao.getCustomerBalance(
+          _selectedCustomer!.id,
+        );
+      }
+
+      // Create invoice model
+      final invoiceModel = ups.Invoice(
+        id: invoiceId,
+        invoiceNumber: 'INV$invoiceId',
+        customerName: _selectedCustomer?.name ?? 'عميل غير محدد',
+        customerPhone: _selectedCustomer?.phone ?? 'N/A',
+        customerZipCode: '',
+        customerState: '',
+        invoiceDate: DateTime.now(),
+        subtotal: _grandTotal,
+        isCreditAccount: _selectedInvoiceType == InvoiceType.credit,
+        previousBalance: previousBalance,
+        totalAmount: _grandTotal,
+      );
+
+      // Create InvoiceData
+      final invoiceData = ups.InvoiceData(
+        invoice: invoiceModel,
+        items: invoiceItems,
+        storeInfo: storeInfo,
+      );
+
+      // Print using new SOP 4.0 format (A4)
+      // Only pass paidAmount if customer has actually paid something
+      final Map<String, dynamic>? additionalData = (_paidAmount > 0)
+          ? {'paidAmount': _paidAmount}
+          : null;
+
+      await ups.UnifiedPrintService.printToThermalPrinter(
+        documentType: ups.DocumentType.salesInvoice,
+        data: invoiceData,
+        additionalData: additionalData,
       );
     } catch (e) {
       if (mounted) {

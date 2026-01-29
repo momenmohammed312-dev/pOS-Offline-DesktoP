@@ -12,6 +12,7 @@ import 'package:flutter/material.dart' show DateTimeRange;
 import 'package:pos_offline_desktop/core/database/app_database.dart';
 import 'package:pos_offline_desktop/core/utils/arabic_helper.dart';
 import 'package:pos_offline_desktop/core/models/report_dtos.dart';
+import 'package:pos_offline_desktop/ui/customer/services/enhanced_customer_statement_generator.dart';
 
 class ExportService {
   static const String _branding = 'Developed by MO2';
@@ -562,8 +563,45 @@ class ExportService {
     );
   }
 
-  // Customer Statement PDF
+  // Customer Statement PDF - Using EnhancedAccountStatementGenerator
   Future<void> exportCustomerStatement({
+    required AppDatabase db,
+    required String customerName,
+    required List<Map<String, dynamic>> transactions,
+    required double openingBalance,
+    required double currentBalance,
+  }) async {
+    try {
+      // Generate PDF using the new enhanced customer statement generator
+      await EnhancedCustomerStatementGenerator.generateStatement(
+        db: db,
+        customerId: customerName, // Use customer name as ID for export
+        customerName: customerName,
+        fromDate: DateTime.now().subtract(
+          Duration(days: 365),
+        ), // Default to last year
+        toDate: DateTime.now(),
+        openingBalance: openingBalance,
+        currentBalance: currentBalance,
+      );
+
+      // Note: The new generator handles PDF saving internally
+      debugPrint('Customer statement generated successfully');
+    } catch (e) {
+      debugPrint('Error in exportCustomerStatement: $e');
+      // Fallback to old method if new one fails
+      await _exportCustomerStatementLegacy(
+        db: db,
+        customerName: customerName,
+        transactions: transactions,
+        openingBalance: openingBalance,
+        currentBalance: currentBalance,
+      );
+    }
+  }
+
+  // Legacy fallback method
+  Future<void> _exportCustomerStatementLegacy({
     required AppDatabase db,
     required String customerName,
     required List<Map<String, dynamic>> transactions,

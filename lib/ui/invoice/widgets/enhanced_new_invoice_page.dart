@@ -7,7 +7,8 @@ import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pos_offline_desktop/core/database/app_database.dart';
-import 'package:pos_offline_desktop/core/services/printer_service.dart';
+import 'package:pos_offline_desktop/core/services/unified_print_service.dart'
+    as ups;
 import 'package:pos_offline_desktop/l10n/app_localizations.dart';
 import 'package:pos_offline_desktop/ui/invoice/widgets/day_closed_dialog.dart';
 import 'package:pos_offline_desktop/ui/invoice/widgets/day_opening_page.dart';
@@ -22,8 +23,13 @@ enum PaymentMethod { cash, visa, mastercard, transfer, wallet, other }
 
 class EnhancedNewInvoicePage extends StatefulHookConsumerWidget {
   final AppDatabase db;
+  final bool isCredit;
 
-  const EnhancedNewInvoicePage({super.key, required this.db});
+  const EnhancedNewInvoicePage({
+    super.key,
+    required this.db,
+    this.isCredit = false,
+  });
 
   @override
   ConsumerState<EnhancedNewInvoicePage> createState() =>
@@ -490,6 +496,14 @@ class _EnhancedNewInvoicePageState
       status = 'pending';
     }
 
+    // Get customer's actual previous balance BEFORE saving to database
+    double previousBalance = 0.0;
+    if (_selectedCustomer != null && _selectedCustomer!.id != 'cash') {
+      previousBalance = await db.ledgerDao.getCustomerBalance(
+        _selectedCustomer!.id,
+      );
+    }
+
     // Insert invoice
     final invoiceId = await db.invoiceDao.insertInvoice(
       InvoicesCompanion(
@@ -561,7 +575,70 @@ class _EnhancedNewInvoicePageState
         .join(', ');
     final ledgerDescription = 'بيع #$_invoiceNumber ($productSummary)';
 
-    // Record ledger transactions
+    // Get all items with products for printing
+    final itemsWithProducts = await Future.wait(
+      _productEntries.map((entry) async {
+        final product = entry.product?.id != null
+            ? await db.productDao.getProductById(entry.product!.id)
+            : null;
+        return (entry, product);
+      }),
+    );
+
+    final invoiceItems = itemsWithProducts.map((itemWithProduct) {
+      final item = itemWithProduct.$1;
+      final product = itemWithProduct.$2;
+      return ups.InvoiceItem(
+        id: item.product?.id ?? 0,
+        invoiceId: invoiceId, // Use the actual invoice ID from database
+        description: product?.name ?? 'Product ${item.product?.id}',
+        unit: item.unit,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.lineTotal,
+      );
+    }).toList();
+
+    final storeInfo = ups.StoreInfo(
+      storeName: 'المحل التجاري',
+      phone: '01234567890',
+      zipCode: '12345',
+      state: 'القاهرة',
+    );
+
+    final invoiceModel = ups.Invoice(
+      id: invoiceId,
+      invoiceNumber: _invoiceNumber ?? 'INV$invoiceId',
+      customerName: customerName,
+      customerPhone: _selectedCustomer?.phone ?? 'N/A',
+      customerZipCode: '',
+      customerState: '',
+      invoiceDate: DateTime.now(),
+      subtotal: _grandTotal,
+      isCreditAccount: _invoiceType == InvoiceType.credit,
+      previousBalance: previousBalance,
+      totalAmount: _grandTotal,
+    );
+
+    final invoiceData = ups.InvoiceData(
+      invoice: invoiceModel,
+      items: invoiceItems,
+      storeInfo: storeInfo,
+    );
+
+    // Print using new SOP 4.0 format
+    // Only pass paidAmount if customer has actually paid something
+    final Map<String, dynamic>? additionalData = (_paidAmount > 0)
+        ? {'paidAmount': _paidAmount}
+        : null;
+
+    await ups.UnifiedPrintService.printToThermalPrinter(
+      documentType: ups.DocumentType.salesInvoice,
+      data: invoiceData,
+      additionalData: additionalData,
+    );
+
+    // Record ledger transactions AFTER printing (so previous balance is correct)
     await db.ledgerDao.insertTransaction(
       LedgerTransactionsCompanion.insert(
         id: '${DateTime.now().millisecondsSinceEpoch}_sale',
@@ -584,44 +661,13 @@ class _EnhancedNewInvoicePageState
           entityType: 'Customer',
           refId: customerId,
           date: DateTime.now(),
-          description: 'دفع #$_invoiceNumber',
+          description: 'دفع فاتورة #$_invoiceNumber',
           debit: const Value(0.0),
           credit: Value(_paidAmount),
           origin: 'payment',
-          paymentMethod: Value(paymentMethodStr),
+          paymentMethod: Value('cash'),
           receiptNumber: Value(_invoiceNumber!),
         ),
-      );
-    }
-
-    // Print invoice
-    final invoiceData = {
-      'id': invoiceId,
-      'invoiceNumber': _invoiceNumber,
-      'customerName': customerName,
-      'customerId': customerId,
-      'totalAmount': _grandTotal,
-      'paidAmount': _paidAmount,
-      'remainingAmount': _remainingAmount,
-      'date': DateTime.now(),
-      'paymentMethod': paymentMethodStr,
-      'notes': _notesController.text,
-    };
-
-    final itemsData = _productEntries.map((entry) => entry.toJson()).toList();
-
-    if (_invoiceType == InvoiceType.cash) {
-      // Print thermal receipt
-      await PrinterService.printThermalReceiptFromInvoice(
-        invoice: invoiceData,
-        items: itemsData,
-      );
-    } else {
-      // Print A4 invoice
-      await PrinterService.printA4Invoice(
-        invoice: invoiceData,
-        items: itemsData,
-        customer: _selectedCustomer,
       );
     }
   }

@@ -23,7 +23,14 @@ part 'app_database.g.dart';
     PurchaseItems,
     CreditPayments,
     Employees,
-    Sales,
+    EnhancedSuppliers,
+    EnhancedPurchases,
+    EnhancedPurchaseItems,
+    SupplierPayments,
+    PurchaseBudgets,
+    BudgetCategories,
+    BudgetTransactions,
+    BudgetAlerts,
   ],
   daos: [
     ProductDao,
@@ -35,15 +42,15 @@ part 'app_database.g.dart';
     DayDao,
     PurchaseDao,
     CreditPaymentsDao,
-    EmployeesDao,
+    EnhancedPurchaseDao,
+    PurchaseBudgetDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  @override
-  int get schemaVersion => 29;
+  int get schemaVersion => 30;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -456,13 +463,6 @@ class AppDatabase extends _$AppDatabase {
         } catch (e) {
           log('Migration v20: Employees table already exists or error: $e');
         }
-
-        try {
-          await m.createTable(sales);
-          log('Migration to v20: Created sales table');
-        } catch (e) {
-          log('Migration v20: Sales table already exists or error: $e');
-        }
       }
 
       if (from < 22) {
@@ -870,6 +870,46 @@ class AppDatabase extends _$AppDatabase {
         log(
           'Migration v29: Successfully recreated customers table and restored data',
         );
+      }
+
+      if (from < 30) {
+        log('Migration v30: Creating enhanced purchase tables');
+
+        try {
+          await m.createTable(enhancedSuppliers);
+          log('Migration v30: Created enhanced_suppliers table');
+        } catch (e) {
+          log(
+            'Migration v30: Enhanced suppliers table already exists or error: $e',
+          );
+        }
+
+        try {
+          await m.createTable(enhancedPurchases);
+          log('Migration v30: Created enhanced_purchases table');
+        } catch (e) {
+          log(
+            'Migration v30: Enhanced purchases table already exists or error: $e',
+          );
+        }
+
+        try {
+          await m.createTable(enhancedPurchaseItems);
+          log('Migration v30: Created enhanced_purchase_items table');
+        } catch (e) {
+          log(
+            'Migration v30: Enhanced purchase items table already exists or error: $e',
+          );
+        }
+
+        try {
+          await m.createTable(supplierPayments);
+          log('Migration v30: Created supplier_payments table');
+        } catch (e) {
+          log(
+            'Migration v30: Supplier payments table already exists or error: $e',
+          );
+        }
       }
     },
     beforeOpen: (details) async {

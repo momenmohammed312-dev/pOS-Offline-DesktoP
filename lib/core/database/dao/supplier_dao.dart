@@ -55,4 +55,21 @@ class SupplierDao extends DatabaseAccessor<AppDatabase>
       readsFrom: {suppliers},
     ).map((row) => row.read<int>('count')).watchSingle();
   }
+
+  Stream<double> watchTotalSuppliersDues() {
+    return customSelect(
+      '''SELECT SUM(
+        COALESCE(
+          (SELECT SUM(credit - debit) 
+           FROM ledger_transactions 
+           WHERE entity_type = 'Supplier' 
+           AND ref_id = suppliers.id), 
+          0.0
+        )
+      ) as total_dues 
+      FROM suppliers 
+      WHERE status = 'Active' ''',
+      readsFrom: {suppliers, db.ledgerTransactions},
+    ).map((row) => row.read<double>('total_dues')).watchSingle();
+  }
 }
