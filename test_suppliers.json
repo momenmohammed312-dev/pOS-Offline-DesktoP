@@ -1,0 +1,38 @@
+[
+  {
+    "name": "شركة التقنية المتقدمة",
+    "nameEn": "Advanced Technology Co.",
+    "phone": "01098765432",
+    "email": "info@advancedtech.com",
+    "address": "القاهرة، مصر",
+    "addressEn": "Cairo, Egypt",
+    "contactPerson": "أيمن سامي",
+    "contactPersonEn": "Ayman Samy",
+    "balance": 12000.0,
+    "isActive": true
+  },
+  {
+    "name": "مؤسسة الإلكترونيات الحديثة",
+    "nameEn": "Modern Electronics Est.",
+    "phone": "02098765432",
+    "email": "sales@modernelectronics.com",
+    "address": "الرياض، السعودية",
+    "addressEn": "Riyadh, Saudi Arabia",
+    "contactPerson": "سالم أحمد",
+    "contactPersonEn": "Salem Ahmed",
+    "balance": 8500.0,
+    "isActive": true
+  },
+  {
+    "name": "شركة المستوردون الموثوقون",
+    "nameEn": "Trusted Importers Ltd.",
+    "phone": "03098765432",
+    "email": "import@trusted.com",
+    "address": "دبي، الإمارات",
+    "addressEn": "Dubai, UAE",
+    "contactPerson": "راشد محمد",
+    "contactPersonEn": "Rashid Mohamed",
+    "balance": 15000.0,
+    "isActive": true
+  }
+]

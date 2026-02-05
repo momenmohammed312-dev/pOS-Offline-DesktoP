@@ -1,0 +1,12 @@
+ADMIN LICENSE INFORMATION
+=========================
+Generated: 2026-02-05 15:41:37.163847
+Device ID: ADMIN-DEVICE-UNIVERSAL
+Type: admin
+Max Users: 999
+Duration: LIFETIME
+Expires: Never (lifetime license)
+Features: pos, inventory, customers, suppliers, reports, accounting, users, backup, export, admin
+
+ADMIN ACTIVATION KEY:
+eyJkZXZpY2UiOiJBRE1JTi1ERVZJQ0UtVU5JVkVSU0FMIiwiZXhwaXJ5IjoiMjEyNi0wMS0xMlQxNTo0MTozNi44NTAyNDIiLCJmZWF0dXJlcyI6WyJwb3MiLCJpbnZlbnRvcnkiLCJjdXN0b21lcnMiLCJzdXBwbGllcnMiLCJyZXBvcnRzIiwiYWNjb3VudGluZyIsInVzZXJzIiwiYmFja3VwIiwiZXhwb3J0IiwiYWRtaW4iXSwibWF4X3VzZXJzIjo5OTksImxpY2Vuc2VfdHlwZSI6ImFkbWluIiwiZHVyYXRpb24iOiLZhdiv2Ykg2KfZhNit2YrYp9ipIiwiZHVyYXRpb25fZGF5cyI6MzY1MDAsInByaWNlX211bHRpcGxpZXIiOjAsImNyZWF0ZWQiOiIyMDI2LTAyLTA1VDE1OjQxOjM2Ljg2MTI2MSIsInZlcnNpb24iOiIyLjAuMCJ9.0714068c21f0c8ffaea1080024d13247430f3df90d7877a5b4a9d4e5d051ad2b

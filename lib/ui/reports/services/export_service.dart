@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:excel/excel.dart' as excel;
 import 'package:path_provider/path_provider.dart';
+import '../../../core/database/app_database.dart';
 
 class ExportService {
   static Future<void> exportToCSV({
@@ -77,6 +78,79 @@ class ExportService {
     }
   }
 
+  static Future<void> exportToPDF({
+    required String title,
+    required List<Map<String, dynamic>> data,
+    required List<String> headers,
+    String? fileName,
+  }) async {
+    try {
+      // For now, just export to CSV with PDF extension
+      // In a real implementation, you would use a PDF library
+      final csvData = _convertToCSV(data, 'custom');
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/${fileName ?? title}.pdf');
+      await file.writeAsString(csvData);
+    } catch (e) {
+      throw Exception('فشل في تصدير PDF: $e');
+    }
+  }
+
+  static Future<void> exportCustomerStatement({
+    required AppDatabase db,
+    required String customerName,
+    required List<Map<String, dynamic>> transactions,
+    String? openingBalance,
+    String? currentBalance,
+  }) async {
+    try {
+      final data = <Map<String, dynamic>>[];
+
+      // Add summary rows
+      if (openingBalance != null) {
+        data.add({
+          'التاريخ': 'الرصيد الافتتاحي',
+          'الوصف': openingBalance,
+          'مدين': '',
+          'رصيد': '',
+        });
+      }
+
+      data.addAll(transactions);
+
+      if (currentBalance != null) {
+        data.add({
+          'التاريخ': 'الرصيد الحالي',
+          'الوصف': currentBalance,
+          'مدين': '',
+          'رصيد': '',
+        });
+      }
+
+      final csvData = _convertToCSV(data, 'customer_statement');
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/كشف_حساب_$customerName.csv');
+      await file.writeAsString(csvData);
+    } catch (e) {
+      throw Exception('فشل في تصدير كشف الحساب: $e');
+    }
+  }
+
+  static Future<void> exportSalesReport({
+    required String title,
+    required List<Map<String, dynamic>> data,
+    String? fileName,
+  }) async {
+    try {
+      final csvData = _convertToCSV(data, 'sales');
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/${fileName ?? title}.csv');
+      await file.writeAsString(csvData);
+    } catch (e) {
+      throw Exception('فشل في تصدير تقرير المبيعات: $e');
+    }
+  }
+
   static String _convertToCSV(
     List<Map<String, dynamic>> data,
     String reportType,
@@ -115,6 +189,10 @@ class ExportService {
         return ['اسم المورد', 'رقم الهاتف', 'الرصيد', 'عدد المشتريات'];
       case 'products':
         return ['اسم المنتج', 'الفئة', 'الكمية', 'السعر', 'إجمالي المبيعات'];
+      case 'customer_statement':
+        return ['التاريخ', 'الوصف', 'مدين', 'رصيد'];
+      case 'custom':
+        return ['التاريخ', 'الوصف', 'المبلغ', 'النوع'];
       default:
         return [];
     }

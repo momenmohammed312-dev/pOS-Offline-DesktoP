@@ -42,6 +42,12 @@ class InvoiceTypeSelectionDialog extends StatelessWidget {
               leading: const Icon(Icons.swap_horiz),
               onTap: () => Navigator.of(context).pop('exchange'),
             ),
+            ListTile(
+              title: const Text('توريد'),
+              subtitle: const Text('فاتورة شراء من مورد'),
+              leading: const Icon(Icons.local_shipping),
+              onTap: () => Navigator.of(context).pop('supply'),
+            ),
           ],
         ),
       ),

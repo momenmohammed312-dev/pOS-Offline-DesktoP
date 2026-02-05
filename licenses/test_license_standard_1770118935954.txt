@@ -1,0 +1,12 @@
+TEST LICENSE INFORMATION
+========================
+Generated: 2026-02-03 13:42:16.035859
+Device ID: test-device-123
+Type: standard
+Max Users: 3
+Duration: 365 days
+Expires: 2027-02-03
+Features: pos, inventory, customers, suppliers, reports
+
+LICENSE KEY:
+eyJkZXZpY2UiOiJ0ZXN0LWRldmljZS0xMjMiLCJleHBpcnkiOiIyMDI3LTAyLTAzVDEzOjQyOjE1Ljg1NjYyNSIsImZlYXR1cmVzIjpbInBvcyIsImludmVudG9yeSIsImN1c3RvbWVycyIsInN1cHBsaWVycyIsInJlcG9ydHMiXSwibWF4X3VzZXJzIjozLCJsaWNlbnNlX3R5cGUiOiJzdGFuZGFyZCIsImNyZWF0ZWQiOiIyMDI2LTAyLTAzVDEzOjQyOjE1Ljg4NzAyOSIsInZlcnNpb24iOiIyLjAuMCJ9.cef48605055b4ba0491d0e942e6f8904616f02d78c1a2928557222a59c7bb52c

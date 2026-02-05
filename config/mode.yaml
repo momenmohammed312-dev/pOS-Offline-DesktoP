@@ -1,0 +1,5 @@
+mode: read-only
+description: "Main workspace mode. Possible values: read-only, plan, build. Build requires explicit approval."
+adminOverride:
+  enabled: true
+  token: "<REPLACE_WITH_SECURE_TOKEN>"

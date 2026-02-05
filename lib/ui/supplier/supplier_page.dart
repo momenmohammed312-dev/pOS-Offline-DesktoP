@@ -94,39 +94,16 @@ class _SupplierPageState extends State<SupplierPage> {
   }
 
   Future<void> _showAddEditSupplierDialog({Supplier? supplier}) async {
-    final result = await showDialog<SuppliersCompanion>(
+    final result = await showDialog<bool>(
       context: context,
       builder: (context) => SupplierFormDialog(
+        database: widget.db,
         supplier: supplier,
-        onSave: (supplier) => Navigator.of(context).pop(supplier),
       ),
     );
 
-    if (result != null) {
-      try {
-        if (supplier == null) {
-          await widget.db.supplierDao.insertSupplier(result);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('تمت إضافة المورد بنجاح')),
-            );
-          }
-        } else {
-          await widget.db.supplierDao.updateSupplier(result);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('تم تحديث بيانات المورد بنجاح')),
-            );
-          }
-        }
-        _loadSuppliers();
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
-        }
-      }
+    if (result == true) {
+      await _loadSuppliers();
     }
   }
 

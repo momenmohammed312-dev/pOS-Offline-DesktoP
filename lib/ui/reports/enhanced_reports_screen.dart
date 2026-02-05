@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../../core/database/dao/enhanced_purchase_dao.dart';
 import '../../../core/provider/app_database_provider.dart';
+import '../../../widgets/license/feature_guard.dart';
+import 'widgets/inventory_report_tab.dart';
 
 class EnhancedReportsScreen extends ConsumerStatefulWidget {
   const EnhancedReportsScreen({super.key});
@@ -98,32 +100,60 @@ class _EnhancedReportsScreenState extends ConsumerState<EnhancedReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Color(0xFF1E1E2E),
-      appBar: AppBar(
-        title: Text('التقارير المحسّنة'),
-        backgroundColor: Color(0xFF2D2D3D),
-      ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: Colors.purple))
-          : SingleChildScrollView(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Purchase Statistics Section
-                  _buildPurchaseStatistics(),
-                  SizedBox(height: 24),
-
-                  // Quick Actions
-                  _buildQuickActions(),
-                  SizedBox(height: 24),
-
-                  // Charts Section
-                  _buildChartsSection(),
-                ],
-              ),
+    return FeatureGuard(
+      featureName: 'reports',
+      child: DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          backgroundColor: const Color(0xFF1E1E2E),
+          appBar: AppBar(
+            title: const Text('التقارير المحسّنة'),
+            backgroundColor: const Color(0xFF2D2D3D),
+            bottom: const TabBar(
+              tabs: [
+                Tab(icon: Icon(Icons.shopping_cart), text: 'المشتريات'),
+                Tab(icon: Icon(Icons.inventory_2), text: 'المخزون'),
+              ],
+              indicatorColor: Colors.purple,
+              labelColor: Colors.purple,
+              unselectedLabelColor: Colors.grey,
             ),
+          ),
+          body: TabBarView(
+            children: [
+              // Purchases Tab
+              _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: Colors.purple),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadPurchaseStatistics,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Purchase Statistics Section
+                            _buildPurchaseStatistics(),
+                            const SizedBox(height: 24),
+
+                            // Quick Actions
+                            _buildQuickActions(),
+                            const SizedBox(height: 24),
+
+                            // Charts Section
+                            _buildChartsSection(),
+                          ],
+                        ),
+                      ),
+                    ),
+
+              // Inventory Tab
+              const InventoryReportTab(),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

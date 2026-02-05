@@ -1,0 +1,262 @@
+[
+  {
+    "invoiceNumber": "PUR-2026-0001",
+    "supplierId": 1,
+    "supplierName": "شركة التقنية المتقدمة",
+    "invoiceDate": "2026-01-21T13:47:08.314657",
+    "paymentType": "credit",
+    "subtotal": 935.0,
+    "discount": 93.5,
+    "tax": 0.0,
+    "total": 841.5,
+    "paid": 280.5,
+    "remaining": 561.0,
+    "items": [
+      {
+        "productId": 7,
+        "productName": "كاميرا ويب لوجيتك",
+        "quantity": 11,
+        "cost": 85.0,
+        "total": 935.0
+      }
+    ]
+  },
+  {
+    "invoiceNumber": "PUR-2026-0002",
+    "supplierId": 3,
+    "supplierName": "شركة المستوردون الموثوقون",
+    "invoiceDate": "2026-01-20T13:47:08.314657",
+    "paymentType": "cash",
+    "subtotal": 7685.0,
+    "discount": 768.5,
+    "tax": 0.0,
+    "total": 6916.5,
+    "paid": 6916.5,
+    "remaining": 0.0,
+    "items": [
+      {
+        "productId": 9,
+        "productName": "USB فلاش 32GB",
+        "quantity": 5,
+        "cost": 15.0,
+        "total": 75.0
+      },
+      {
+        "productId": 4,
+        "productName": "شاشة سامسونج 24\"",
+        "quantity": 7,
+        "cost": 950.0,
+        "total": 6650.0
+      },
+      {
+        "productId": 6,
+        "productName": "هارد خارجي 1TB",
+        "quantity": 8,
+        "cost": 120.0,
+        "total": 960.0
+      }
+    ]
+  },
+  {
+    "invoiceNumber": "PUR-2026-0003",
+    "supplierId": 2,
+    "supplierName": "مؤسسة الإلكترونيات الحديثة",
+    "invoiceDate": "2026-01-19T13:47:08.314657",
+    "paymentType": "cash",
+    "subtotal": 9050.0,
+    "discount": 905.0,
+    "tax": 0.0,
+    "total": 8145.0,
+    "paid": 8145.0,
+    "remaining": 0.0,
+    "items": [
+      {
+        "productId": 6,
+        "productName": "هارد خارجي 1TB",
+        "quantity": 10,
+        "cost": 120.0,
+        "total": 1200.0
+      },
+      {
+        "productId": 6,
+        "productName": "هارد خارجي 1TB",
+        "quantity": 10,
+        "cost": 120.0,
+        "total": 1200.0
+      },
+      {
+        "productId": 4,
+        "productName": "شاشة سامسونج 24\"",
+        "quantity": 7,
+        "cost": 950.0,
+        "total": 6650.0
+      }
+    ]
+  },
+  {
+    "invoiceNumber": "PUR-2026-0004",
+    "supplierId": 1,
+    "supplierName": "شركة التقنية المتقدمة",
+    "invoiceDate": "2026-01-19T13:47:08.314657",
+    "paymentType": "credit",
+    "subtotal": 900.0,
+    "discount": 90.0,
+    "tax": 0.0,
+    "total": 810.0,
+    "paid": 270.0,
+    "remaining": 540.0,
+    "items": [
+      {
+        "productId": 3,
+        "productName": "كيبورد ميكانيكي",
+        "quantity": 5,
+        "cost": 180.0,
+        "total": 900.0
+      }
+    ]
+  },
+  {
+    "invoiceNumber": "PUR-2026-0005",
+    "supplierId": 3,
+    "supplierName": "شركة المستوردون الموثوقون",
+    "invoiceDate": "2026-01-16T13:47:08.314657",
+    "paymentType": "credit",
+    "subtotal": 2270.0,
+    "discount": 227.0,
+    "tax": 0.0,
+    "total": 2043.0,
+    "paid": 681.0,
+    "remaining": 1362.0,
+    "items": [
+      {
+        "productId": 8,
+        "productName": "سماعات بلوتوث",
+        "quantity": 13,
+        "cost": 65.0,
+        "total": 845.0
+      },
+      {
+        "productId": 6,
+        "productName": "هارد خارجي 1TB",
+        "quantity": 7,
+        "cost": 120.0,
+        "total": 840.0
+      },
+      {
+        "productId": 8,
+        "productName": "سماعات بلوتوث",
+        "quantity": 9,
+        "cost": 65.0,
+        "total": 585.0
+      }
+    ]
+  },
+  {
+    "invoiceNumber": "PUR-2026-0006",
+    "supplierId": 3,
+    "supplierName": "شركة المستوردون الموثوقون",
+    "invoiceDate": "2026-02-01T13:47:08.314657",
+    "paymentType": "credit",
+    "subtotal": 2100.0,
+    "discount": 210.0,
+    "tax": 0.0,
+    "total": 1890.0,
+    "paid": 630.0,
+    "remaining": 1260.0,
+    "items": [
+      {
+        "productId": 5,
+        "productName": "طابعة HP",
+        "quantity": 6,
+        "cost": 350.0,
+        "total": 2100.0
+      }
+    ]
+  },
+  {
+    "invoiceNumber": "PUR-2026-0007",
+    "supplierId": 3,
+    "supplierName": "شركة المستوردون الموثوقون",
+    "invoiceDate": "2026-01-26T13:47:08.314657",
+    "paymentType": "cash",
+    "subtotal": 4375.0,
+    "discount": 437.5,
+    "tax": 0.0,
+    "total": 3937.5,
+    "paid": 3937.5,
+    "remaining": 0.0,
+    "items": [
+      {
+        "productId": 6,
+        "productName": "هارد خارجي 1TB",
+        "quantity": 8,
+        "cost": 120.0,
+        "total": 960.0
+      },
+      {
+        "productId": 7,
+        "productName": "كاميرا ويب لوجيتك",
+        "quantity": 7,
+        "cost": 85.0,
+        "total": 595.0
+      },
+      {
+        "productId": 2,
+        "productName": "ماوس لوجيتك",
+        "quantity": 5,
+        "cost": 60.0,
+        "total": 300.0
+      },
+      {
+        "productId": 3,
+        "productName": "كيبورد ميكانيكي",
+        "quantity": 14,
+        "cost": 180.0,
+        "total": 2520.0
+      }
+    ]
+  },
+  {
+    "invoiceNumber": "PUR-2026-0008",
+    "supplierId": 3,
+    "supplierName": "شركة المستوردون الموثوقون",
+    "invoiceDate": "2026-01-27T13:47:08.314657",
+    "paymentType": "credit",
+    "subtotal": 191800.0,
+    "discount": 19180.0,
+    "tax": 0.0,
+    "total": 172620.0,
+    "paid": 57540.0,
+    "remaining": 115080.0,
+    "items": [
+      {
+        "productId": 10,
+        "productName": "ماك بوك برو",
+        "quantity": 11,
+        "cost": 7200.0,
+        "total": 79200.0
+      },
+      {
+        "productId": 1,
+        "productName": "لابتوس ديل",
+        "quantity": 13,
+        "cost": 2800.0,
+        "total": 36400.0
+      },
+      {
+        "productId": 5,
+        "productName": "طابعة HP",
+        "quantity": 12,
+        "cost": 350.0,
+        "total": 4200.0
+      },
+      {
+        "productId": 10,
+        "productName": "ماك بوك برو",
+        "quantity": 10,
+        "cost": 7200.0,
+        "total": 72000.0
+      }
+    ]
+  }
+]

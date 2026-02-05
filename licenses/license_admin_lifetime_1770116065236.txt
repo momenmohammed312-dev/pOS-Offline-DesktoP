@@ -1,0 +1,12 @@
+LICENSE INFORMATION
+===================
+Generated: 2026-02-03 12:54:25.236513
+Device ID: DEVICE_1770116009416_217
+Type: admin
+Max Users: 999
+Duration: LIFETIME
+Expires: Never (lifetime license)
+Features: pos, inventory, customers, suppliers, reports, accounting, users, backup, export, admin
+
+LICENSE KEY:
+eyJkZXZpY2UiOiJERVZJQ0VfMTc3MDExNjAwOTQxNl8yMTciLCJleHBpcnkiOiIyMTI2LTAxLTEwVDEyOjU0OjI1LjIzNjUxMyIsImZlYXR1cmVzIjpbInBvcyIsImludmVudG9yeSIsImN1c3RvbWVycyIsInN1cHBsaWVycyIsInJlcG9ydHMiLCJhY2NvdW50aW5nIiwidXNlcnMiLCJiYWNrdXAiLCJleHBvcnQiLCJhZG1pbiJdLCJtYXhfdXNlcnMiOjk5OSwibGljZW5zZV90eXBlIjoiYWRtaW4iLCJjcmVhdGVkIjoiMjAyNi0wMi0wM1QxMjo1NDoyNS4yMzY1MTMiLCJ2ZXJzaW9uIjoiMi4wLjAifQ==.9a926097c28ac3d870a68f4d50f76583b9e189b20b25cf4c6731c144c77bb192

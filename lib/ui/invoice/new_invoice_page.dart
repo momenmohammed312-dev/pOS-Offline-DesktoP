@@ -89,6 +89,12 @@ class _NewInvoicePageState extends ConsumerState<NewInvoicePage> {
     );
 
     if (result != null && mounted) {
+      // Handle supply navigation separately
+      if (result == 'supply') {
+        Navigator.pushNamed(context, '/new-supply-invoice');
+        return;
+      }
+
       setState(() {
         _selectedInvoiceType = result;
         _invoiceTypeLocked = true;

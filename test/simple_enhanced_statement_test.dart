@@ -1,35 +1,21 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pos_offline_desktop/ui/customer/services/enhanced_customer_statement_generator.dart';
+import 'package:pos_offline_desktop/core/utils/currency_helper.dart';
 
 void main() {
-  group('EnhancedCustomerStatementGenerator Simple Tests', () {
-    test('should format currency correctly', () {
-      expect(
-        EnhancedCustomerStatementGenerator.formatCurrency(123.45),
-        equals('123.45 ج.م'),
-      );
-      expect(
-        EnhancedCustomerStatementGenerator.formatCurrency(0.0),
-        equals('0.00 ج.م'),
-      );
-      expect(
-        EnhancedCustomerStatementGenerator.formatCurrency(double.nan),
-        equals('0.00 ج.م'),
-      );
+  group('Simple Enhanced Statement Tests', () {
+    test('يجب تنسيق مبلغ بسيط', () {
+      final result = CurrencyHelper.formatCurrency(123.45);
+      expect(result, '123.45 ج.م');
     });
 
-    test('should handle negative values', () {
-      expect(
-        EnhancedCustomerStatementGenerator.formatCurrency(-123.45),
-        equals('-123.45 ج.م'),
-      );
+    test('يجب تنسيق مبلغ سالب', () {
+      final result = CurrencyHelper.formatCurrency(-123.45);
+      expect(result, '-123.45 ج.م');
     });
 
-    test('should handle large values', () {
-      expect(
-        EnhancedCustomerStatementGenerator.formatCurrency(1234567.89),
-        equals('1,234,567.89 ج.م'),
-      );
+    test('يجب تنسيق مبلغ كبير', () {
+      final result = CurrencyHelper.formatCurrency(1234567.89);
+      expect(result, '1,234,567.89 ج.م');
     });
   });
 }

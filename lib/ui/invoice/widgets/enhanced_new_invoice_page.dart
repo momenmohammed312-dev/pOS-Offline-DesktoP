@@ -5,21 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:go_router/go_router.dart';
 import 'package:pos_offline_desktop/core/database/app_database.dart';
-import 'package:pos_offline_desktop/core/services/unified_print_service.dart'
-    as ups;
-import 'package:pos_offline_desktop/l10n/app_localizations.dart';
-import 'package:pos_offline_desktop/ui/invoice/widgets/day_closed_dialog.dart';
-import 'package:pos_offline_desktop/ui/invoice/widgets/day_opening_page.dart';
+import 'package:pos_offline_desktop/ui/invoice/models/invoice_models.dart';
 import 'package:pos_offline_desktop/ui/invoice/widgets/invoice_type_selection_modal.dart';
-import 'package:pos_offline_desktop/ui/invoice/widgets/product_card.dart';
 import 'package:pos_offline_desktop/ui/invoice/widgets/product_selection_modal.dart';
 import 'package:pos_offline_desktop/ui/invoice/widgets/order_line_item.dart';
 import 'package:pos_offline_desktop/ui/invoice/models/product_entry.dart';
-
-// Payment method enum
-enum PaymentMethod { cash, visa, mastercard, transfer, wallet, other }
+import 'package:pos_offline_desktop/core/services/unified_print_service.dart'
+    as ups;
+import 'package:pos_offline_desktop/ui/invoice/widgets/day_closed_dialog.dart';
+import 'package:pos_offline_desktop/ui/invoice/widgets/product_card.dart';
+import 'package:pos_offline_desktop/ui/invoice/widgets/day_opening_page.dart';
 
 class EnhancedNewInvoicePage extends StatefulHookConsumerWidget {
   final AppDatabase db;
@@ -167,67 +164,33 @@ class _EnhancedNewInvoicePageState
 
   Future<void> _scanBarcode() async {
     try {
-      // Show barcode scanning dialog
-      await showDialog(
+      // Manual barcode entry fallback
+      final barcode = await showDialog<String>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('مسح الباركود'),
-          content: SizedBox(
-            width: 300,
-            height: 300,
-            child: MobileScanner(
-              onDetect: (capture) {
-                final List<Barcode> barcodes = capture.barcodes;
-                for (final barcode in barcodes) {
-                  if (barcode.rawValue != null) {
-                    Navigator.of(context).pop(barcode.rawValue);
-                    return;
-                  }
-                }
-              },
+          title: const Text('أدخل الباركود يدوياً'),
+          content: TextField(
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'الباركود',
+              hintText: 'أدخل رقم الباركود',
             ),
+            onSubmitted: (value) {
+              Navigator.of(context).pop(value);
+            },
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('إلغاء'),
             ),
-            TextButton(
-              onPressed: () async {
-                // Manual barcode entry fallback
-                Navigator.of(context).pop();
-                final barcode = await showDialog<String>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('أدخل الباركود يدوياً'),
-                    content: TextField(
-                      autofocus: true,
-                      decoration: const InputDecoration(
-                        labelText: 'الباركود',
-                        hintText: 'أدخل رقم الباركود',
-                      ),
-                      onSubmitted: (value) {
-                        Navigator.of(context).pop(value);
-                      },
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('إلغاء'),
-                      ),
-                    ],
-                  ),
-                );
-
-                if (barcode != null && barcode.isNotEmpty) {
-                  await _handleBarcodeScanned(barcode);
-                }
-              },
-              child: const Text('إدخال يدوي'),
-            ),
           ],
         ),
       );
+
+      if (barcode != null && barcode.isNotEmpty) {
+        await _handleBarcodeScanned(barcode);
+      }
     } catch (e) {
       log('Error scanning barcode: $e');
       if (mounted) {
@@ -269,6 +232,12 @@ class _EnhancedNewInvoicePageState
   }
 
   void _setInvoiceType(InvoiceType type) {
+    // Handle supply navigation separately
+    if (type == InvoiceType.supply) {
+      context.go('/new-supply-invoice');
+      return;
+    }
+
     setState(() {
       _invoiceType = type;
       _showInvoiceTypeModal = false;
@@ -674,7 +643,7 @@ class _EnhancedNewInvoicePageState
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
+    final l10n = 'ar'; // Simple placeholder for localization
 
     // Show day closed dialog
     if (!_isDayOpen && !_isLoading) {
@@ -706,7 +675,7 @@ class _EnhancedNewInvoicePageState
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(l10n.new_invoice),
+        title: const Text('فاتورة جديدة'),
         actions: [
           IconButton(
             icon: const Icon(Icons.save),
@@ -724,17 +693,17 @@ class _EnhancedNewInvoicePageState
         child: Row(
           children: [
             // Products Panel (2/3 width)
-            Expanded(flex: 2, child: _buildProductsPanel(l10n)),
+            Expanded(flex: 2, child: _buildProductsPanel()),
             const VerticalDivider(width: 1),
             // Invoice Details Panel (1/3 width)
-            Expanded(flex: 1, child: _buildDetailsPanel(l10n)),
+            Expanded(flex: 1, child: _buildDetailsPanel()),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildProductsPanel(AppLocalizations l10n) {
+  Widget _buildProductsPanel() {
     return Container(
       color: Theme.of(context).colorScheme.surface,
       child: Column(
@@ -792,7 +761,7 @@ class _EnhancedNewInvoicePageState
     );
   }
 
-  Widget _buildDetailsPanel(AppLocalizations l10n) {
+  Widget _buildDetailsPanel() {
     return Container(
       color: Theme.of(context).colorScheme.surface,
       child: Column(
@@ -1037,7 +1006,7 @@ class _EnhancedNewInvoicePageState
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        '${_remainingAmount.toStringAsFixed(2)} ${l10n.currency}',
+                        '${_remainingAmount.toStringAsFixed(2)} ج.م',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: _remainingAmount > 0

@@ -31,6 +31,9 @@ part 'app_database.g.dart';
     BudgetCategories,
     BudgetTransactions,
     BudgetAlerts,
+    InventoryMovements,
+    AuditLog,
+    Categories,
   ],
   daos: [
     ProductDao,
@@ -44,13 +47,15 @@ part 'app_database.g.dart';
     CreditPaymentsDao,
     EnhancedPurchaseDao,
     PurchaseBudgetDao,
+    InventoryMovementDao,
+    AuditDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 30;
+  int get schemaVersion => 32;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -66,6 +71,26 @@ class AppDatabase extends _$AppDatabase {
         log('Added customer_id column to invoices table');
       } catch (e) {
         log('Customer ID column already exists or failed to add: $e');
+      }
+
+      // Always ensure totalAmount column exists in invoices table
+      try {
+        await customStatement(
+          'ALTER TABLE invoices ADD COLUMN totalAmount REAL DEFAULT 0.0',
+        );
+        log('Added totalAmount column to invoices table');
+      } catch (e) {
+        log('totalAmount column already exists or failed to add: $e');
+      }
+
+      // Always ensure paidAmount column exists in invoices table
+      try {
+        await customStatement(
+          'ALTER TABLE invoices ADD COLUMN paidAmount REAL DEFAULT 0.0',
+        );
+        log('Added paidAmount column to invoices table');
+      } catch (e) {
+        log('paidAmount column already exists or failed to add: $e');
       }
 
       if (from < 2) {
@@ -909,6 +934,85 @@ class AppDatabase extends _$AppDatabase {
           log(
             'Migration v30: Supplier payments table already exists or error: $e',
           );
+        }
+      }
+
+      if (from < 31) {
+        // Create InventoryMovements table for detailed inventory tracking
+        try {
+          await m.createTable(inventoryMovements);
+          log('Migration v31: Created inventory_movements table');
+        } catch (e) {
+          log(
+            'Migration v31: Inventory movements table already exists or error: $e',
+          );
+        }
+
+        // Create indexes for better performance
+        try {
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_inventory_movements_product_id ON inventory_movements(product_id)',
+          );
+          log('Migration v31: Created index on inventory_movements.product_id');
+        } catch (e) {
+          log(
+            'Migration v31: Index on inventory_movements.product_id error: $e',
+          );
+        }
+
+        try {
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_inventory_movements_date ON inventory_movements(movement_date)',
+          );
+          log(
+            'Migration v31: Created index on inventory_movements.movement_date',
+          );
+        } catch (e) {
+          log(
+            'Migration v31: Index on inventory_movements.movement_date error: $e',
+          );
+        }
+
+        try {
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_inventory_movements_type ON inventory_movements(movement_type)',
+          );
+          log(
+            'Migration v31: Created index on inventory_movements.movement_type',
+          );
+        } catch (e) {
+          log(
+            'Migration v31: Index on inventory_movements.movement_type error: $e',
+          );
+        }
+      }
+
+      if (from < 32) {
+        // Create audit log table for SaaS compliance
+        try {
+          await m.createTable(auditLog);
+          log('Migration v32: Created audit_log table');
+        } catch (e) {
+          log('Migration v32: Audit log table already exists or error: $e');
+        }
+
+        // Create indexes for audit log
+        try {
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp)',
+          );
+          log('Migration v32: Created index on audit_log.timestamp');
+        } catch (e) {
+          log('Migration v32: Index on audit_log.timestamp error: $e');
+        }
+
+        try {
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id)',
+          );
+          log('Migration v32: Created index on audit_log.user_id');
+        } catch (e) {
+          log('Migration v32: Index on audit_log.user_id error: $e');
         }
       }
     },

@@ -9,7 +9,7 @@ class PurchasePrintService {
   final EnhancedPurchaseDao _purchaseDao;
 
   PurchasePrintService(AppDatabase database)
-      : _purchaseDao = EnhancedPurchaseDao(database);
+    : _purchaseDao = EnhancedPurchaseDao(database);
 
   /// Print purchase report
   Future<void> printPurchaseReport(Map<String, dynamic> reportData) async {
@@ -34,26 +34,29 @@ class PurchasePrintService {
 
       // Get supplier transactions (purchases and payments)
       final purchases = await _purchaseDao.getPurchasesBySupplier(supplierId);
-      
+
       // Prepare supplier data for printing
       final supplierData = {
         'supplierName': supplier.businessName,
         'supplierPhone': supplier.phone,
         'currentBalance': supplier.currentBalance,
-        'transactions': purchases.map((p) => {
-          'date': p.purchaseDate.toIso8601String(),
-          'type': 'purchase',
-          'description': 'فاتورة توريد #${p.purchaseNumber}',
-          'amount': p.totalAmount,
-          'balance': p.remainingAmount,
-        }).toList(),
+        'transactions': purchases
+            .map(
+              (p) => {
+                'date': p.purchaseDate.toIso8601String(),
+                'type': 'purchase',
+                'description': 'فاتورة توريد #${p.purchaseNumber}',
+                'amount': p.totalAmount,
+                'balance': p.remainingAmount,
+              },
+            )
+            .toList(),
       };
 
       await ups.UnifiedPrintService.printToThermalPrinter(
         documentType: ups.DocumentType.supplierStatement,
         data: supplierData,
       );
-      
     } catch (e) {
       debugPrint('Error printing supplier statement: $e');
       rethrow;
@@ -61,7 +64,9 @@ class PurchasePrintService {
   }
 
   /// Print purchase analytics
-  Future<void> printPurchaseAnalytics(Map<String, dynamic> analyticsData) async {
+  Future<void> printPurchaseAnalytics(
+    Map<String, dynamic> analyticsData,
+  ) async {
     try {
       await ups.UnifiedPrintService.printToThermalPrinter(
         documentType: ups.DocumentType.purchaseReport,
@@ -96,14 +101,14 @@ class PurchasePrintService {
       }
 
       final items = await _purchaseDao.getItemsByPurchase(purchaseId);
-      
+
       // Convert to InvoiceData format for UnifiedPrintService
       final invoiceData = ups.InvoiceData(
         invoice: ups.Invoice(
           id: purchase.id,
           invoiceNumber: purchase.purchaseNumber,
-          customerName: purchase.supplierName, // For purchase, this is supplier name
-          customerPhone: purchase.supplierPhone ?? '',
+          customerName: purchase.supplierName,
+          customerPhone: purchase.supplierPhone,
           customerZipCode: '',
           customerState: '',
           invoiceDate: purchase.purchaseDate,
@@ -113,22 +118,25 @@ class PurchasePrintService {
           totalAmount: purchase.totalAmount,
           notes: purchase.notes,
         ),
-        items: items.map((item) => ups.InvoiceItem(
-          id: item.id,
-          invoiceId: purchase.id,
-          description: item.productName,
-          unit: item.unit,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          totalPrice: item.totalPrice,
-        )).toList(),
+        items: items
+            .map(
+              (item) => ups.InvoiceItem(
+                id: item.id,
+                invoiceId: purchase.id,
+                description: item.productName,
+                unit: item.unit,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                totalPrice: item.totalPrice,
+              ),
+            )
+            .toList(),
       );
-      
+
       await ups.UnifiedPrintService.printToThermalPrinter(
         documentType: ups.DocumentType.purchaseInvoice,
         data: invoiceData,
       );
-      
     } catch (e) {
       debugPrint('Error printing purchase invoice: $e');
       rethrow;

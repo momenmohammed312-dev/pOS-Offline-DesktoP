@@ -8,4 +8,6 @@ export 'purchase_dao.dart';
 export 'supplier_dao.dart';
 export 'day_dao.dart';
 export 'enhanced_purchase_dao.dart';
+export 'inventory_movement_dao.dart';
 export 'purchase_budget_dao.dart';
+export 'audit_dao.dart';

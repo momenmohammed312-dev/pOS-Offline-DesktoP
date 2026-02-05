@@ -93,4 +93,10 @@ class DayDao extends DatabaseAccessor<AppDatabase> with _$DayDaoMixin {
       variables: [Variable.withInt(dayId)],
     );
   }
+
+  Stream<List<Map<String, Object?>>> watchAllDays() {
+    return customSelect(
+      'SELECT * FROM days ORDER BY date DESC',
+    ).watch().map((rows) => rows.map((r) => r.data).toList());
+  }
 }

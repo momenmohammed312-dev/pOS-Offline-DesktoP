@@ -678,10 +678,6 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
                   await purchaseDao.updateSupplier(updatedSupplier);
 
                   widget.onPaymentRecorded();
-                  if (mounted) {
-                    final navigatorContext = context;
-                    Navigator.pop(navigatorContext);
-                  }
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.green),

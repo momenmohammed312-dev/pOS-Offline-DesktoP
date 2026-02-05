@@ -1,0 +1,12 @@
+LICENSE INFORMATION
+===================
+Generated: 2026-02-03 12:56:12.320748
+Device ID: DEVICE_1770116009416_217
+Type: basic
+Max Users: 1
+Duration: 1 months
+Expires: 2026-03-05
+Features: pos, inventory, customers, suppliers, reports, backup
+
+LICENSE KEY:
+eyJkZXZpY2UiOiJERVZJQ0VfMTc3MDExNjAwOTQxNl8yMTciLCJleHBpcnkiOiIyMDI2LTAzLTA1VDEyOjU2OjEyLjE4OTg4NiIsImZlYXR1cmVzIjpbInBvcyIsImludmVudG9yeSIsImN1c3RvbWVycyIsInN1cHBsaWVycyIsInJlcG9ydHMiLCJiYWNrdXAiXSwibWF4X3VzZXJzIjoxLCJsaWNlbnNlX3R5cGUiOiJiYXNpYyIsImNyZWF0ZWQiOiIyMDI2LTAyLTAzVDEyOjU2OjEyLjE5NTM1NiIsInZlcnNpb24iOiIyLjAuMCJ9.5c275580f8563685db8f19fd6d6e4702bdb0bb4bbdf3e2c3d3e2a911067f07ba

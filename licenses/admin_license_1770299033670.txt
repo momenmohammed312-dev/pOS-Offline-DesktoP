@@ -1,0 +1,12 @@
+ADMIN LICENSE INFORMATION
+=========================
+Generated: 2026-02-05 15:43:53.758055
+Device ID: test-device-123
+Type: admin
+Max Users: 999
+Duration: LIFETIME
+Expires: Never (lifetime license)
+Features: pos, inventory, customers, suppliers, reports, accounting, users, backup, export, admin
+
+ADMIN ACTIVATION KEY:
+eyJkZXZpY2UiOiJ0ZXN0LWRldmljZS0xMjMiLCJleHBpcnkiOiIyMTI2LTAxLTEyVDE1OjQzOjUzLjUzOTc5NyIsImZlYXR1cmVzIjpbInBvcyIsImludmVudG9yeSIsImN1c3RvbWVycyIsInN1cHBsaWVycyIsInJlcG9ydHMiLCJhY2NvdW50aW5nIiwidXNlcnMiLCJiYWNrdXAiLCJleHBvcnQiLCJhZG1pbiJdLCJtYXhfdXNlcnMiOjk5OSwibGljZW5zZV90eXBlIjoiYWRtaW4iLCJkdXJhdGlvbiI6ItmF2K/ZiSDYp9mE2K3Zitin2KkiLCJkdXJhdGlvbl9kYXlzIjozNjUwMCwicHJpY2VfbXVsdGlwbGllciI6MCwiY3JlYXRlZCI6IjIwMjYtMDItMDVUMTU6NDM6NTMuNTUxODY1IiwidmVyc2lvbiI6IjIuMC4wIn0=.930e9e11585dc9119d3f86c994c1fcca489eed1d7d67ac77d5b962d7557dc4b2

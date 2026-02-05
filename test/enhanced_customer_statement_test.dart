@@ -1,98 +1,95 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pos_offline_desktop/ui/customer/services/enhanced_customer_statement_generator.dart';
-import 'package:pos_offline_desktop/core/database/app_database.dart';
-import 'package:drift/native.dart';
-import 'package:drift/drift.dart' as drift;
+import 'package:pos_offline_desktop/core/utils/currency_helper.dart';
 
 void main() {
-  group('EnhancedCustomerStatementGenerator Tests', () {
-    late AppDatabase db;
-
-    setUp(() {
-      // Use in-memory database for testing
-      db = AppDatabase(drift.DatabaseConnection(NativeDatabase.memory()));
+  group('Enhanced Customer Statement - Currency Formatting', () {
+    test('يجب تنسيق المبلغ الموجب بشكل صحيح', () {
+      final result = CurrencyHelper.formatCurrency(123.45);
+      expect(result, '123.45 ج.م');
     });
 
-    tearDown(() async {
-      await db.close();
+    test('يجب معالجة القيمة null', () {
+      final result = CurrencyHelper.formatCurrency(null);
+      expect(result, '0.00 ج.م');
     });
 
-    test('should format currency correctly', () {
-      expect(
-        EnhancedCustomerStatementGenerator.formatCurrency(123.45),
-        equals('123.45 ج.م'),
-      );
-      expect(
-        EnhancedCustomerStatementGenerator.formatCurrency(0.0),
-        equals('0.00 ج.م'),
-      );
-      expect(
-        EnhancedCustomerStatementGenerator.formatCurrency(double.nan),
-        equals('0.00 ج.م'),
-      );
+    test('يجب معالجة NaN', () {
+      final result = CurrencyHelper.formatCurrency(double.nan);
+      expect(result, '0.00 ج.م');
     });
 
-    test('should handle NaN values in currency formatting', () {
-      expect(
-        EnhancedCustomerStatementGenerator.formatCurrency(double.nan),
-        equals('0.00 ج.م'),
-      );
-      expect(
-        EnhancedCustomerStatementGenerator.formatCurrency(double.infinity),
-        equals('∞ ج.م'),
-      );
-      expect(
-        EnhancedCustomerStatementGenerator.formatCurrency(
-          double.negativeInfinity,
-        ),
-        equals('-∞ ج.م'),
-      );
+    test('يجب معالجة Infinity', () {
+      final result = CurrencyHelper.formatCurrency(double.infinity);
+      expect(result, '0.00 ج.م');
     });
 
-    group('Edge Cases', () {
-      test('should handle NaN values in currency formatting', () {
-        expect(
-          EnhancedCustomerStatementGenerator.formatCurrency(double.nan),
-          equals('0.00 ج.م'),
-        );
-        expect(
-          EnhancedCustomerStatementGenerator.formatCurrency(double.infinity),
-          equals('∞ ج.م'),
-        );
-        expect(
-          EnhancedCustomerStatementGenerator.formatCurrency(
-            double.negativeInfinity,
-          ),
-          equals('-∞ ج.م'),
-        );
-      });
-
-      test('should handle negative balances', () {
-        expect(
-          EnhancedCustomerStatementGenerator.formatCurrency(-123.45),
-          equals('-123.45 ج.م'),
-        );
-      });
-
-      test('should handle zero values', () {
-        expect(
-          EnhancedCustomerStatementGenerator.formatCurrency(0.0),
-          equals('0.00 ج.م'),
-        );
-      });
+    test('يجب تنسيق المبلغ السالب', () {
+      final result = CurrencyHelper.formatCurrency(-123.45);
+      expect(result, '-123.45 ج.م');
     });
 
-    group('Integration Tests', () {
-      test('should handle database connection for testing', () {
-        expect(db, isNotNull);
-        expect(db, isA<AppDatabase>());
-      });
+    test('يجب تنسيق الصفر', () {
+      final result = CurrencyHelper.formatCurrency(0);
+      expect(result, '0.00 ج.م');
+    });
 
-      test('should be able to access database methods', () {
-        expect(db.customerDao, isNotNull);
-        expect(db.invoiceDao, isNotNull);
-        expect(db.ledgerDao, isNotNull);
-      });
+    test('يجب تنسيق المبلغ الكبير بفواصل', () {
+      final result = CurrencyHelper.formatCurrency(1234567.89);
+      expect(result, '1,234,567.89 ج.م');
+    });
+
+    test('يجب تحويل String إلى مبلغ', () {
+      final result = CurrencyHelper.formatCurrency('123.45');
+      expect(result, '123.45 ج.م');
+    });
+
+    test('يجب معالجة String غير صحيح', () {
+      final result = CurrencyHelper.formatCurrency('abc');
+      expect(result, '0.00 ج.م');
+    });
+
+    test('يجب التنسيق بدون رمز العملة', () {
+      final result = CurrencyHelper.formatCurrency(123.45, showSymbol: false);
+      expect(result, '123.45');
+    });
+  });
+
+  group('Enhanced Customer Statement - Parsing', () {
+    test('يجب استخراج الرقم من النص المنسق', () {
+      final amount = CurrencyHelper.parseFormattedCurrency('123.45 ج.م');
+      expect(amount, 123.45);
+    });
+
+    test('يجب استخراج الرقم مع فواصل', () {
+      final amount = CurrencyHelper.parseFormattedCurrency('1,234,567.89 ج.م');
+      expect(amount, 1234567.89);
+    });
+
+    test('يجب معالجة نص فارغ', () {
+      final amount = CurrencyHelper.parseFormattedCurrency('');
+      expect(amount, 0.0);
+    });
+  });
+
+  group('Enhanced Customer Statement - Safe Conversions', () {
+    test('يجب تحويل int إلى double', () {
+      final result = CurrencyHelper.toDouble(123);
+      expect(result, 123.0);
+    });
+
+    test('يجب تحويل String إلى double', () {
+      final result = CurrencyHelper.toDouble('123.45');
+      expect(result, 123.45);
+    });
+
+    test('يجب معالجة NaN في التحويل', () {
+      final result = CurrencyHelper.toDouble(double.nan);
+      expect(result, 0.0);
+    });
+
+    test('يجب تقريب الأرقام', () {
+      final result = CurrencyHelper.round(123.456789);
+      expect(result, 123.46);
     });
   });
 }

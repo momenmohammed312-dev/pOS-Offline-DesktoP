@@ -6,6 +6,9 @@ import 'package:pos_offline_desktop/core/provider/app_database_provider.dart';
 import 'package:pos_offline_desktop/ui/reports/widgets/customer_report_tab.dart';
 import 'package:pos_offline_desktop/ui/reports/widgets/expenses_report_tab.dart';
 import 'package:pos_offline_desktop/ui/reports/widgets/sales_report_tab.dart';
+import 'package:pos_offline_desktop/ui/reports/widgets/purchase_by_supplier_report.dart';
+import 'package:pos_offline_desktop/ui/reports/widgets/purchase_by_product_report.dart';
+import 'package:pos_offline_desktop/ui/reports/widgets/purchase_vs_sales_report.dart';
 
 class ReportsPage extends ConsumerStatefulWidget {
   const ReportsPage({super.key});
@@ -600,6 +603,60 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                             builder: (context) => ExpensesReportTab(
                               db: ref.read(appDatabaseProvider),
                             ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const Gap(15),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildActionCard(
+                      'المشتريات حسب المورد',
+                      'عرض مشتريات كل مورد',
+                      Icons.business,
+                      Colors.orange,
+                      () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const PurchaseBySupplierReport(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const Gap(15),
+                  Expanded(
+                    child: _buildActionCard(
+                      'المشتريات حسب المنتج',
+                      'عرض مشتريات كل منتج',
+                      Icons.inventory,
+                      Colors.purple,
+                      () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const PurchaseByProductReport(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const Gap(15),
+                  Expanded(
+                    child: _buildActionCard(
+                      'مقارنة المشتريات بالمبيعات',
+                      'عرض الأرباح والهوامش',
+                      Icons.compare_arrows,
+                      Colors.teal,
+                      () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const PurchaseVsSalesReport(),
                           ),
                         );
                       },

@@ -13,7 +13,7 @@ import 'package:pos_offline_desktop/ui/invoice/new_invoice_page.dart';
 import 'package:pos_offline_desktop/ui/invoice/widgets/enhanced_invoice_page.dart';
 import 'package:pos_offline_desktop/ui/pages/sidebar_page.dart';
 import 'package:pos_offline_desktop/ui/product/product.dart';
-import 'package:pos_offline_desktop/ui/supplier/supplier_page.dart';
+import 'package:pos_offline_desktop/ui/supplier/suppliers_page.dart';
 import 'package:pos_offline_desktop/ui/purchase/purchase_page.dart';
 import 'package:pos_offline_desktop/ui/reports/reports_page.dart';
 import 'package:pos_offline_desktop/ui/widgets/side_bar.dart';
@@ -120,7 +120,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case SideBarPage.customers:
         return const CustomerScreen();
       case SideBarPage.suppliers:
-        return SupplierPage(db: db);
+        return const SuppliersPage();
       case SideBarPage.invoice:
         return InvoiceScreen(db: db);
       case SideBarPage.newInvoice:

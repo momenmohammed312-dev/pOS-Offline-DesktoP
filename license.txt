@@ -1,0 +1,187 @@
+PROFESSIONAL POS SYSTEM v2.0 - LICENSE AGREEMENT
+
+IMPORTANT: READ CAREFULLY BEFORE INSTALLING
+
+This License Agreement ("Agreement") is a legal contract between you ("Licensee") and 
+Your Company ("Licensor") for the Professional POS System software ("Software").
+
+---
+
+## 1. LICENSE GRANT
+
+Licensor grants Licensee a non-exclusive, non-transferable license to use the Software
+in accordance with the terms of this Agreement.
+
+---
+
+## 2. LICENSE TYPES
+
+### BASIC LICENSE (1 User)
+- Point of Sale operations
+- Inventory management
+- Customer management
+- Basic reports
+- Data backup
+
+### STANDARD LICENSE (3 Users)
+- All Basic features
+- Supplier management
+- Advanced reports
+- Data export
+- Email support
+
+### PROFESSIONAL LICENSE (5 Users)
+- All Standard features
+- Accounting module
+- User management
+- Priority support
+- Cloud backup
+
+### ENTERPRISE LICENSE (10 Users)
+- All Professional features
+- Custom features
+- Dedicated support
+- On-site training
+
+---
+
+## 3. LICENSE DURATION
+
+### MONTHLY LICENSE
+- 30 days from activation date
+- Auto-renewal available
+- Support included
+
+### YEARLY LICENSE
+- 365 days from activation date
+- Best value (2 months free)
+- Priority support
+
+### LIFETIME LICENSE
+- 100 years from activation date
+- One-time payment
+- Basic support
+
+---
+
+## 4. USAGE RESTRICTIONS
+
+Licensee may NOT:
+- Reverse engineer, decompile, or disassemble the Software
+- Modify, adapt, translate, or create derivative works
+- Rent, lease, or lend the Software
+- Use the Software on more devices than licensed
+- Circumvent license protection mechanisms
+
+---
+
+## 5. INTELLECTUAL PROPERTY
+
+All intellectual property rights in the Software remain with Licensor.
+Licensee acknowledges no ownership rights in the Software.
+
+---
+
+## 6. TECHNICAL PROTECTION
+
+The Software includes:
+- Hardware fingerprinting
+- License validation
+- Anti-tampering protection
+- Automatic updates
+
+Any attempt to circumvent these protections violates this Agreement.
+
+---
+
+## 7. DATA PROTECTION
+
+Licensee is responsible for:
+- Regular data backups
+- Data security and privacy
+- Compliance with applicable laws
+
+Licensor provides backup tools but is not responsible for data loss.
+
+---
+
+## 8. SUPPORT AND UPDATES
+
+### Support Included:
+- Email support during business hours
+- Bug fixes and security updates
+- Documentation and tutorials
+
+### Premium Support (Professional/Enterprise):
+- Priority response times
+- Remote assistance
+- On-site training (Enterprise only)
+
+---
+
+## 9. WARRANTY DISCLAIMER
+
+The Software is provided "AS IS" without warranties of any kind.
+Licensor disclaims all warranties, express or implied, including:
+- Fitness for a particular purpose
+- MERCHANTABILITY
+- Non-infringement
+
+---
+
+## 10. LIMITATION OF LIABILITY
+
+Licensor shall not be liable for any damages arising from Software use,
+including but not limited to:
+- Lost profits or business interruption
+- Data loss or corruption
+- Third-party claims
+
+Maximum liability shall not exceed the license fee paid.
+
+---
+
+## 11. TERMINATION
+
+This Agreement terminates automatically upon:
+- License expiration
+- Material breach of terms
+- Bankruptcy or insolvency
+
+Upon termination, Licensee must:
+- Stop using the Software
+- Destroy all copies
+- Return license materials
+
+---
+
+## 12. GOVERNING LAW
+
+This Agreement governed by laws of Egypt.
+Disputes resolved through arbitration in Cairo.
+
+---
+
+## 13. GENERAL PROVISIONS
+
+- This Agreement constitutes the entire understanding
+- Modifications must be in writing and signed
+- Severable: if one provision invalid, others remain
+- Waiver: failure to enforce rights not waiver
+
+---
+
+## 14. CONTACT INFORMATION
+
+For questions about this Agreement:
+Email: legal@yourcompany.com
+Phone: +20 XXX XXX XXXX
+Website: https://yourcompany.com
+
+---
+
+INSTALLING THE SOFTWARE INDICATES ACCEPTANCE OF THESE TERMS.
+© 2026 Your Company. All rights reserved.
+
+Last Updated: February 2026
+Version: 2.0

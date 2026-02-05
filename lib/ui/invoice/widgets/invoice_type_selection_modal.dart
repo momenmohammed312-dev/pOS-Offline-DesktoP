@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-
-enum InvoiceType { cash, credit }
+import 'package:pos_offline_desktop/ui/invoice/models/invoice_models.dart';
 
 class InvoiceTypeSelectionModal extends StatelessWidget {
   final Function(InvoiceType) onSelectType;
@@ -52,106 +51,156 @@ class InvoiceTypeSelectionModal extends StatelessWidget {
                 ),
               ),
               const Gap(32),
-              Row(
+              // Three column layout for desktop
+              Column(
                 children: [
-                  // Cash Option
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => onSelectType(InvoiceType.cash),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: theme.colorScheme.primary,
-                            width: 2,
-                          ),
+                  Row(
+                    children: [
+                      // Cash Option
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => onSelectType(InvoiceType.cash),
                           borderRadius: BorderRadius.circular(12),
-                          color: theme.colorScheme.primary.withValues(
-                            alpha: 0.15,
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.attach_money,
-                              size: 48,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const Gap(12),
-                            Text(
-                              'نقدي',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.onSurface,
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: theme.colorScheme.primary,
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.15,
                               ),
                             ),
-                            const Gap(8),
-                            Text(
-                              'دفع فوري\nإيصال حراري',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.6,
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.attach_money,
+                                  size: 48,
+                                  color: theme.colorScheme.primary,
                                 ),
-                              ),
+                                const Gap(12),
+                                Text(
+                                  'نقدي',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                                const Gap(8),
+                                Text(
+                                  'دفع فوري\nإيصال حراري',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  const Gap(16),
-                  // Credit Option
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => onSelectType(InvoiceType.credit),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: theme.colorScheme.secondary,
-                            width: 2,
-                          ),
+                      const Gap(16),
+                      // Credit Option
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => onSelectType(InvoiceType.credit),
                           borderRadius: BorderRadius.circular(12),
-                          color: theme.colorScheme.secondary.withValues(
-                            alpha: 0.15,
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.credit_card,
-                              size: 48,
-                              color: theme.colorScheme.secondary,
-                            ),
-                            const Gap(12),
-                            Text(
-                              'آجل',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.onSurface,
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: theme.colorScheme.secondary,
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              color: theme.colorScheme.secondary.withValues(
+                                alpha: 0.15,
                               ),
                             ),
-                            const Gap(8),
-                            Text(
-                              'دفع على الحساب\nفاتورة A4',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.6,
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.credit_card,
+                                  size: 48,
+                                  color: theme.colorScheme.secondary,
                                 ),
-                              ),
+                                const Gap(12),
+                                Text(
+                                  'آجل',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                                const Gap(8),
+                                Text(
+                                  'دفع على الحساب\nفاتورة A4',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
+                      const Gap(16),
+                      // Supply Option
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => onSelectType(InvoiceType.supply),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Colors.orange,
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.orange.withValues(alpha: 0.15),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.local_shipping,
+                                  size: 48,
+                                  color: Colors.orange,
+                                ),
+                                const Gap(12),
+                                Text(
+                                  'توريد',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                                const Gap(8),
+                                Text(
+                                  'فاتورة شراء\nمن المورد',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

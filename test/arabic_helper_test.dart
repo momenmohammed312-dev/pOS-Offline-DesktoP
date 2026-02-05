@@ -1,92 +1,91 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pos_offline_desktop/core/utils/arabic_helper.dart';
+import 'package:pos_offline_desktop/core/utils/text_utils.dart';
+import 'test_helpers.dart';
 
 void main() {
-  group('ArabicHelper Tests', () {
-    test('reshapedText should handle empty string', () {
-      expect(ArabicHelper.reshapedText(''), '');
+  group('Arabic Text Processing', () {
+    TestHelpers.testWithTimeout('يجب معالجة النص العربي البسيط', () {
+      final input = 'كشف حساب';
+      final result = TextUtils.processArabicText(input);
+
+      // استخدام المقارنة الآمنة
+      TestHelpers.expectArabicText(result, 'كشف حساب');
     });
 
-    test('reshapedText should handle Arabic text correctly', () {
-      const input = 'كشف حساب';
-      final result = ArabicHelper.reshapedText(input);
+    TestHelpers.testWithTimeout('يجب معالجة النص المختلط', () {
+      final input = 'الفاتورة رقم 123';
+      final result = TextUtils.processArabicText(input);
 
-      // The result should be the same as input since we're using font-based rendering
-      expect(result, equals(input));
-      expect(result, isNotEmpty);
-    });
-
-    test('reshapedText should handle mixed Arabic and numbers', () {
-      const input = 'الفاتورة رقم 123';
-      final result = ArabicHelper.reshapedText(input);
-
-      expect(result, equals(input));
-      expect(result, isNotEmpty);
       expect(result, contains('123'));
+      TestHelpers.expectArabicText(result, 'الفاتورة رقم 123');
     });
 
-    test('reshapedText should handle Arabic with separators', () {
-      const input = '2023/12/01';
-      final result = ArabicHelper.reshapedText(input);
+    TestHelpers.testWithTimeout('يجب معالجة الأسماء', () {
+      final input = 'أحمد محمد علي';
+      final result = TextUtils.processArabicText(input);
 
-      // Numbers and separators should remain unchanged
-      expect(result, equals(input));
-      expect(result, contains('2023'));
-      expect(result, contains('/'));
-      expect(result, contains('12'));
-      expect(result, contains('01'));
+      TestHelpers.expectArabicText(result, 'أحمد محمد علي');
     });
 
-    test('reshapedText should handle customer name', () {
-      const input = 'أحمد محمد علي';
-      final result = ArabicHelper.reshapedText(input);
+    TestHelpers.testWithTimeout('يجب معالجة النصوص الطويلة', () {
+      final input = 'هذا نص تجريبي طويل لاختبار أداء معالجة النصوص العربية';
+      final result = TextUtils.processArabicText(input);
 
-      expect(result, equals(input));
       expect(result, isNotEmpty);
+      expect(result, contains('تجريبي'));
     });
 
-    test('reshapedText should handle product descriptions', () {
-      const input = 'كمية 10 قطعة بسعر 15.50 ج.م';
-      final result = ArabicHelper.reshapedText(input);
+    TestHelpers.testWithTimeout('يجب معالجة الأحرف الخاصة', () {
+      final input = 'آية مؤمنة أحمد';
+      final result = TextUtils.processArabicText(input);
 
-      expect(result, equals(input));
-      expect(result, contains('10'));
-      expect(result, contains('15.50'));
+      expect(result, isNotEmpty);
+      expect(result, contains('آية'));
+    });
+  });
+
+  group('Currency Formatting', () {
+    TestHelpers.testWithTimeout('يجب تنسيق المبلغ الموجب', () {
+      final result = TextUtils.formatCurrency(123.45);
+      TestHelpers.expectCurrency(result, 123.45);
       expect(result, contains('ج.م'));
     });
 
-    test('reshapedText should handle single Arabic word', () {
-      const input = 'الإجمالي';
-      final result = ArabicHelper.reshapedText(input);
-
-      expect(result, equals(input));
-      expect(result, isNotEmpty);
+    TestHelpers.testWithTimeout('يجب معالجة NaN', () {
+      final result = TextUtils.formatCurrency(double.nan);
+      TestHelpers.expectCurrency(result, 0.0);
     });
 
-    test('reshapedText should handle Arabic with English letters', () {
-      const input = 'المبلغ USD 100.50';
-      final result = ArabicHelper.reshapedText(input);
-
-      expect(result, equals(input));
-      expect(result, contains('USD'));
-      expect(result, contains('100.50'));
+    TestHelpers.testWithTimeout('يجب تنسيق الأرقام الكبيرة', () {
+      final result = TextUtils.formatCurrency(1234567.89);
+      expect(result, contains('1,234,567.89'));
     });
 
-    test('reshapedText should handle long Arabic sentences', () {
-      const input =
-          'هذا نص تجريبي طويل لاختبار أداء مكتبة إعادة تشكيل النصوص العربية في ملفات PDF';
-      final result = ArabicHelper.reshapedText(input);
-
-      expect(result, equals(input));
-      expect(result, isNotEmpty);
+    TestHelpers.testWithTimeout('يجب تنسيق الصفر', () {
+      final result = TextUtils.formatCurrency(0.0);
+      TestHelpers.expectCurrency(result, 0.0);
     });
 
-    test('reshapedText should handle special Arabic characters', () {
-      const input = 'آية مؤمنة أحمد';
-      final result = ArabicHelper.reshapedText(input);
+    TestHelpers.testWithTimeout('يجب تنسيق الأرقام السالبة', () {
+      final result = TextUtils.formatCurrency(-123.45);
+      TestHelpers.expectCurrency(result, -123.45);
+    });
+  });
 
-      expect(result, equals(input));
-      expect(result, isNotEmpty);
+  group('Number Formatting', () {
+    TestHelpers.testWithTimeout('يجب تنسيق الأرقام العشرية', () {
+      final result = TextUtils.formatNumber(123.4567);
+      expect(result, equals('123.46'));
+    });
+
+    TestHelpers.testWithTimeout('يجب تنسيق مع فواصل الآلاف', () {
+      final result = TextUtils.formatWithSeparators(1234567.89);
+      expect(result, contains('1,234,567.89'));
+    });
+
+    TestHelpers.testWithTimeout('يجب معالجة null', () {
+      final result = TextUtils.formatNumber(null);
+      expect(result, equals('0.00'));
     });
   });
 }

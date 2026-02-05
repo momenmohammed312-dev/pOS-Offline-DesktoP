@@ -1,27 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:pos_offline_desktop/core/database/app_database.dart';
+import 'package:pos_offline_desktop/core/database/dao/supplier_dao.dart';
 
 class SupplierFormDialog extends StatefulWidget {
+  final AppDatabase database;
   final Supplier? supplier;
-  final Function(SuppliersCompanion) onSave;
 
-  const SupplierFormDialog({super.key, this.supplier, required this.onSave});
+  const SupplierFormDialog({super.key, required this.database, this.supplier});
 
   @override
-  SupplierFormDialogState createState() => SupplierFormDialogState();
+  State<SupplierFormDialog> createState() => _SupplierFormDialogState();
 }
 
-class SupplierFormDialogState extends State<SupplierFormDialog> {
+class _SupplierFormDialogState extends State<SupplierFormDialog> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
   late TextEditingController _addressController;
   late TextEditingController _openingBalanceController;
+  bool _isLoading = false;
+  late final SupplierDao _supplierDao;
 
   @override
   void initState() {
     super.initState();
+    _supplierDao = SupplierDao(widget.database);
     _nameController = TextEditingController(text: widget.supplier?.name ?? '');
     _phoneController = TextEditingController(
       text: widget.supplier?.phone ?? '',
@@ -43,29 +47,67 @@ class SupplierFormDialogState extends State<SupplierFormDialog> {
     super.dispose();
   }
 
-  void _saveSupplier() {
+  Future<void> _saveSupplier() async {
     if (_formKey.currentState?.validate() ?? false) {
-      final supplier = SuppliersCompanion(
-        id: Value(
-          widget.supplier?.id ??
-              DateTime.now().millisecondsSinceEpoch.toString(),
-        ),
-        name: Value(_nameController.text.trim()),
-        phone: _phoneController.text.trim().isNotEmpty
-            ? Value(_phoneController.text.trim())
-            : const Value.absent(),
-        address: _addressController.text.trim().isNotEmpty
-            ? Value(_addressController.text.trim())
-            : const Value.absent(),
-        openingBalance: Value(
-          double.tryParse(_openingBalanceController.text) ?? 0.0,
-        ),
-        status: const Value('Active'),
-        createdAt: Value(widget.supplier?.createdAt ?? DateTime.now()),
-      );
+      setState(() => _isLoading = true);
 
-      widget.onSave(supplier);
-      Navigator.of(context).pop();
+      try {
+        if (widget.supplier == null) {
+          // Add new supplier
+          await _supplierDao.insertSupplier(
+            SuppliersCompanion(
+              name: Value(_nameController.text.trim()),
+              phone: _phoneController.text.trim().isNotEmpty
+                  ? Value(_phoneController.text.trim())
+                  : const Value.absent(),
+              address: _addressController.text.trim().isNotEmpty
+                  ? Value(_addressController.text.trim())
+                  : const Value.absent(),
+              openingBalance: Value(
+                double.tryParse(_openingBalanceController.text) ?? 0.0,
+              ),
+              status: const Value('Active'),
+              createdAt: Value(DateTime.now()),
+            ),
+          );
+        } else {
+          // Update existing supplier
+          await _supplierDao.updateSupplier(
+            SuppliersCompanion(
+              id: Value(widget.supplier!.id),
+              name: Value(_nameController.text.trim()),
+              phone: _phoneController.text.trim().isNotEmpty
+                  ? Value(_phoneController.text.trim())
+                  : const Value.absent(),
+              address: _addressController.text.trim().isNotEmpty
+                  ? Value(_addressController.text.trim())
+                  : const Value.absent(),
+              openingBalance: Value(
+                double.tryParse(_openingBalanceController.text) ?? 0.0,
+              ),
+              status: Value(widget.supplier!.status),
+              createdAt: Value(widget.supplier!.createdAt),
+            ),
+          );
+        }
+
+        if (mounted) {
+          Navigator.of(context).pop(true);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('خطأ في حفظ المورد: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     }
   }
 
@@ -102,7 +144,6 @@ class SupplierFormDialogState extends State<SupplierFormDialog> {
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.phone,
-                textDirection: TextDirection.ltr,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -112,7 +153,6 @@ class SupplierFormDialogState extends State<SupplierFormDialog> {
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 2,
-                textDirection: TextDirection.rtl,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -123,7 +163,6 @@ class SupplierFormDialogState extends State<SupplierFormDialog> {
                   prefixText: 'ج.م ',
                 ),
                 keyboardType: TextInputType.number,
-                textDirection: TextDirection.ltr,
                 validator: (value) {
                   if (value != null && value.isNotEmpty) {
                     final amount = double.tryParse(value);
@@ -143,7 +182,16 @@ class SupplierFormDialogState extends State<SupplierFormDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('إلغاء'),
         ),
-        ElevatedButton(onPressed: _saveSupplier, child: const Text('حفظ')),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _saveSupplier,
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('حفظ'),
+        ),
       ],
     );
   }

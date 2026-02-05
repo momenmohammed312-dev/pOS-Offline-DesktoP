@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:pos_offline_desktop/l10n/l10n.dart';
 import 'package:pos_offline_desktop/ui/pages/sidebar_page.dart';
+import 'package:pos_offline_desktop/widgets/license/feature_guard.dart';
 
 class SideBarMenu extends StatelessWidget {
   final SideBarPage selectedPage;
@@ -41,23 +42,32 @@ class SideBarMenu extends StatelessWidget {
           title: context.l10n.sales_and_invoices,
           page: SideBarPage.invoice,
         ),
-        _buildMenuItem(
-          context,
-          svgAssetPath: 'assets/svg/enhanced_invoice.svg',
-          title: 'Enhanced Invoice',
-          page: SideBarPage.enhancedInvoice,
+        FeatureGuard(
+          featureName: 'suppliers',
+          child: _buildMenuItem(
+            context,
+            svgAssetPath: 'assets/svg/customer.svg',
+            title: 'الموردين',
+            page: SideBarPage.suppliers,
+          ),
         ),
-        _buildMenuItem(
-          context,
-          svgAssetPath: 'assets/svg/graph.svg',
-          title: 'المشتريات',
-          page: SideBarPage.purchases,
+        FeatureGuard(
+          featureName: 'suppliers',
+          child: _buildMenuItem(
+            context,
+            svgAssetPath: 'assets/svg/graph.svg',
+            title: 'المشتريات',
+            page: SideBarPage.purchases,
+          ),
         ),
-        _buildMenuItem(
-          context,
-          svgAssetPath: 'assets/svg/graph.svg',
-          title: 'التقارير والمبيعات',
-          page: SideBarPage.reports,
+        FeatureGuard(
+          featureName: 'reports',
+          child: _buildMenuItem(
+            context,
+            svgAssetPath: 'assets/svg/graph.svg',
+            title: 'التقارير والمبيعات',
+            page: SideBarPage.reports,
+          ),
         ),
         _buildMenuItem(
           context,

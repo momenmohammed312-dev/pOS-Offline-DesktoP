@@ -4,7 +4,8 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:go_router/go_router.dart';
+
 import 'package:pos_offline_desktop/core/database/app_database.dart';
 import 'package:pos_offline_desktop/core/services/unified_print_service.dart'
     as ups;
@@ -13,6 +14,7 @@ import 'package:pos_offline_desktop/ui/invoice/widgets/product_card.dart';
 import 'package:pos_offline_desktop/ui/invoice/widgets/product_selection_modal.dart';
 import 'package:pos_offline_desktop/ui/invoice/widgets/order_line_item.dart';
 import 'package:pos_offline_desktop/ui/invoice/models/product_entry.dart';
+import 'product_quick_add_dialog.dart';
 
 // Payment method enum
 enum PaymentMethod { cash, visa, mastercard, transfer, wallet, other }
@@ -176,6 +178,28 @@ class _EnhancedPurchaseInvoicePageState
         },
       ),
     );
+  }
+
+  /// Show quick add product dialog
+  Future<void> _showQuickAddProduct() async {
+    final result = await showDialog<Product>(
+      context: context,
+      builder: (context) => ProductQuickAddDialog(
+        database: widget.db,
+        onProductAdded: (product) async {
+          // Refresh products list
+          final products = await widget.db.productDao.getAllProducts();
+          setState(() {
+            _filteredProducts = products;
+          });
+        },
+      ),
+    );
+
+    // If product was added, optionally add it to the purchase immediately
+    if (result != null) {
+      _showProductSelectionModal(result);
+    }
   }
 
   void _addProductToPurchase(Product product, int quantity, double unitPrice) {
@@ -391,7 +415,14 @@ class _EnhancedPurchaseInvoicePageState
   Widget build(BuildContext context) {
     if (!_isDayOpen) {
       return Scaffold(
-        appBar: AppBar(title: const Text('فاتورة مشتريات جديدة')),
+        appBar: AppBar(
+          title: const Text('فاتورة مشتريات جديدة'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.go('/'),
+            tooltip: 'رجوع',
+          ),
+        ),
         body: DayClosedDialog(
           onOpenDay: () {
             // Implement open day functionality
@@ -405,7 +436,14 @@ class _EnhancedPurchaseInvoicePageState
 
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('فاتورة مشتريات جديدة')),
+        appBar: AppBar(
+          title: const Text('فاتورة مشتريات جديدة'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.go('/'),
+            tooltip: 'رجوع',
+          ),
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -413,6 +451,11 @@ class _EnhancedPurchaseInvoicePageState
     return Scaffold(
       appBar: AppBar(
         title: Text('فاتورة مشتريات جديدة #$_invoiceNumber'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/'),
+          tooltip: 'رجوع',
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.save),
@@ -670,19 +713,34 @@ class _EnhancedPurchaseInvoicePageState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Search bar
-                    TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        labelText: 'البحث عن المنتجات...',
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.search),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.qr_code_scanner),
-                          onPressed: _scanBarcode,
-                          tooltip: 'مسح الباركود',
+                    // Search bar with quick add button
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            decoration: const InputDecoration(
+                              labelText: 'البحث عن المنتجات...',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.search),
+                            ),
+                          ),
                         ),
-                      ),
+                        const Gap(8),
+                        ElevatedButton.icon(
+                          onPressed: _showQuickAddProduct,
+                          icon: const Icon(Icons.add),
+                          label: const Text('منتج جديد'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.purple,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 18,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
 
                     const Gap(16),
@@ -742,45 +800,5 @@ class _EnhancedPurchaseInvoicePageState
         ],
       ),
     );
-  }
-
-  Future<void> _scanBarcode() async {
-    try {
-      // Show barcode scanning dialog
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('مسح الباركود'),
-          content: SizedBox(
-            width: 300,
-            height: 300,
-            child: MobileScanner(
-              onDetect: (capture) {
-                final List<Barcode> barcodes = capture.barcodes;
-                for (final barcode in barcodes) {
-                  if (barcode.rawValue != null) {
-                    Navigator.of(context).pop(barcode.rawValue);
-                    return;
-                  }
-                }
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('إلغاء'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      log('Error scanning barcode: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطأ في مسح الباركود: $e')));
-      }
-    }
   }
 }

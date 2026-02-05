@@ -41,7 +41,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [appDatabaseProvider.overrideWithValue(db)],
-          child: const MyApp(),
+          child: MyApp(isLicenseValid: true),
         ),
       );
       await tester.pumpAndSettle();
@@ -84,7 +84,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [appDatabaseProvider.overrideWithValue(db)],
-          child: const MyApp(),
+          child: MyApp(isLicenseValid: true),
         ),
       );
       await tester.pumpAndSettle();

@@ -7,6 +7,10 @@ import 'package:pos_offline_desktop/core/database/dao/enhanced_purchase_dao.dart
 import 'package:pos_offline_desktop/ui/invoice/widgets/enhanced_new_invoice_page.dart';
 import 'package:pos_offline_desktop/ui/purchase/widgets/enhanced_purchase_invoice_page.dart';
 import 'package:pos_offline_desktop/ui/customer/widgets/customer_dashboard.dart';
+import 'package:pos_offline_desktop/widgets/license/feature_guard.dart';
+import 'package:pos_offline_desktop/widgets/dashboard/sales_summary_widget.dart';
+import 'package:pos_offline_desktop/widgets/dashboard/sales_purchase_comparison_card.dart';
+import 'package:pos_offline_desktop/widgets/dashboard/daily_sales_performance_widget.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -108,6 +112,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 );
               },
             ),
+
+            const Gap(24),
+
+            // Sales Summary Section
+            SalesSummaryWidget(db: db),
+
+            const Gap(24),
+
+            // Daily Sales Performance Section
+            DailySalesPerformanceWidget(db: db),
 
             const Gap(24),
 
@@ -272,19 +286,19 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                 const Gap(16),
                                 Expanded(
                                   child: _buildMetricCard(
-                                    'مشتريات آجلة',
-                                    '${stats.creditPurchases.toStringAsFixed(2)} ج.م',
-                                    Icons.credit_card,
-                                    Colors.orange,
+                                    'المشتريات المدفوعة',
+                                    '${(stats.totalPurchases - stats.creditPurchases).toStringAsFixed(2)} ج.م',
+                                    Icons.payment,
+                                    Colors.green,
                                   ),
                                 ),
                                 const Gap(16),
                                 Expanded(
                                   child: _buildMetricCard(
-                                    'مشتريات نقدية',
-                                    '${stats.cashPurchases.toStringAsFixed(2)} ج.م',
-                                    Icons.attach_money,
-                                    Colors.green,
+                                    'المشتريات الآجلة',
+                                    '${stats.creditPurchases.toStringAsFixed(2)} ج.م',
+                                    Icons.credit_card,
+                                    Colors.orange,
                                   ),
                                 ),
                               ],
@@ -381,6 +395,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
             const Gap(24),
 
+            // Sales vs Purchases Comparison Section
+            SalesPurchaseComparisonCard(database: db),
+
+            const Gap(24),
+
             // Quick Actions Section
             Text(
               'الإجراءات السريعة',
@@ -404,12 +423,15 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 ),
                 const Gap(16),
                 Expanded(
-                  child: _buildQuickActionCard(
-                    'فاتورة مشتريات',
-                    'إنشاء فاتورة مشتريات جديدة',
-                    Icons.shopping_cart,
-                    Colors.orange,
-                    () => _createNewPurchaseInvoice(),
+                  child: FeatureGuard(
+                    featureName: 'suppliers',
+                    child: _buildQuickActionCard(
+                      'فاتورة مشتريات',
+                      'إنشاء فاتورة مشتريات جديدة',
+                      Icons.shopping_cart,
+                      Colors.orange,
+                      () => _createNewPurchaseInvoice(),
+                    ),
                   ),
                 ),
               ],

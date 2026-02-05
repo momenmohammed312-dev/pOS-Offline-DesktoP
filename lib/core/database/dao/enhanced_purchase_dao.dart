@@ -48,6 +48,21 @@ class EnhancedPurchaseDao extends DatabaseAccessor<AppDatabase>
         db.enhancedPurchases,
       )..where((tbl) => tbl.supplierId.equals(supplierId))).get();
 
+  Future<List<EnhancedPurchase>> getPurchasesByDateRange(
+    DateTime start,
+    DateTime end,
+  ) {
+    return (select(db.enhancedPurchases)
+          ..where((tbl) => tbl.purchaseDate.isBetweenValues(start, end))
+          ..orderBy([
+            (tbl) => OrderingTerm(
+              expression: tbl.purchaseDate,
+              mode: OrderingMode.desc,
+            ),
+          ]))
+        .get();
+  }
+
   Future<EnhancedPurchase?> getPurchaseById(int id) => (select(
     db.enhancedPurchases,
   )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();

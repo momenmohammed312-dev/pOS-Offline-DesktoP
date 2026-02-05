@@ -223,7 +223,7 @@ await someAsyncOperation();
 ScaffoldMessenger.of(context).showSnackBar(...); // غير آمن!
 
 // لا تستخدم واجهات برمجة التطبيقات القديمة
-color: Colors.red.withOpacity(0.3)  // قديم
+ color: Colors.red.withValues(alpha: 0.3)  // قديم
 value: selectedValue                 // قديم
 activeColor: Colors.orange          // قديم
 ```
